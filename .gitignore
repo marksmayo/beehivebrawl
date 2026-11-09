@@ -2,3 +2,5 @@
 models/*.glb
 .vercel
 __pycache__/
+node_modules/
+_probe.html
