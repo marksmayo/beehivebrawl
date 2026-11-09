@@ -93,15 +93,15 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 80. [ ] Higher-resolution backdrops on desktop, lower on mobile
 
 ## UI & presentation
-81. [ ] ★ Animated character-select with full-body idle previews and a "VS" splash screen
-82. [ ] Big comic-style name cards when each round starts
-83. [ ] Health bars styled as polling graphs that drain with a ticker
-84. [ ] Round timer as a ballot-counting clock
-85. [ ] Results screen as a newspaper front page with a headline about the winner
-86. [ ] Animated title screen with the cast posing in a comic cover
-87. [ ] Character bios as comic panels with key "quotes"
-88. [ ] Unlockable concept-art gallery
-89. [ ] Pause menu styled like a parliamentary order paper
+81. [x] ★ Animated character-select with full-body idle previews and a "VS" splash screen
+82. [x] Big comic-style name cards when each round starts
+83. [x] Health bars styled as polling graphs that drain with a ticker
+84. [x] Round timer as a ballot-counting clock
+85. [x] Results screen as a newspaper front page with a headline about the winner
+86. [x] Animated title screen with the cast posing in a comic cover
+87. [x] Character bios as comic panels with key "quotes"
+88. [x] Unlockable concept-art gallery
+89. [x] Pause menu styled like a parliamentary order paper
 90. [x] Mobile touch controls with comic-button styling
 
 ## Camera & game feel

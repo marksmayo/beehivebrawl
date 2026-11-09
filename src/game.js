@@ -1,7 +1,8 @@
 import { AI } from './ai.js';
-import { STAGES, buildStage, stage } from './arenas.js';
+import { STAGES, arenaArt, buildStage, stage } from './arenas.js';
 import { isTouch } from './touchui.js';
 import { INTROS } from './anim.js';
+import { fillNewspaper, fillOrderPaper, hideNameCards, renderCover, renderGallery, resetPolls, saveWin, setPortraits, showVS } from './screens.js';
 import { audioInit, muted, say, setMuted, setVoicesOn, sfx, voicesOn } from './audio.js';
 import { banner, bubble, clearFloaters, floater, hideBanner, screenFlash } from './dom.js';
 import { clearFx } from './effects.js';
@@ -53,7 +54,7 @@ function setFighters(defA, defB) {
 }
 
 function showScreen(id) {
-  for (const s of ['title', 'select', 'pause', 'result']) $('#' + s).classList.toggle('hidden', s !== id);
+  for (const s of ['title', 'select', 'pause', 'result', 'gallery']) $('#' + s).classList.toggle('hidden', s !== id);
   const hud = id === null || id === 'pause';
   $('#hud').classList.toggle('on', hud); $('#meters').classList.toggle('on', hud);
   $('#soundHint').classList.toggle('on', hud);
@@ -66,6 +67,7 @@ function toTitle() {
   const i = (Math.random() * ROSTER.length) | 0; let j = (Math.random() * ROSTER.length) | 0; if (j === i) j = (j + 1) % ROSTER.length;
   setFighters(ROSTER[i], ROSTER[j]);
   game.aiA = new AI(game.p[0], 1); game.aiB = new AI(game.p[1], 1);
+  setPortraits(portraits); renderCover(ROSTER, portraits); hideNameCards();
   showScreen('title');
 }
 
@@ -100,6 +102,7 @@ function infoHTML(d, side) {
   return `<div class="ik" style="color:${hex(d.pcol === 0x222222 ? 0x111111 : d.pcol)}">${d.party} · “${d.nick}”</div>
     <div class="in">${d.name}</div>
     <div class="ib">${d.bio}</div>
+    <div class="quote">${d.quips[0]}</div>
     <div class="mv"><b>A:</b> ${d.moves.a.name} &nbsp; <b>B:</b> ${d.moves.b.name}<br><b>SUPER:</b> ${d.moves.s.name}</div>
     <div>${st('SPD', d.stats.speed)}${st('PWR', d.stats.power)}${st('DEF', d.stats.defense)}</div>`;
 }
@@ -149,7 +152,11 @@ function selConfirm(p) {
     const g = game.p[1]; g.state = 'victory'; bubble(g, pick(ROSTER[j].intro), { dur:1.8 });
   }
   updateGrid();
-  if (game.conf[0] && game.conf[1]) setTimeout(() => { if (game.phase === 'select' && game.conf[0] && game.conf[1]) startMatch(); }, 1100);
+  // both picked: the VS splash with the tale of the tape (81), then fight
+  if (game.conf[0] && game.conf[1]) setTimeout(() => {
+    if (game.phase !== 'select' || !game.conf[0] || !game.conf[1]) return;
+    game.phase = 'vs'; showVS(ROSTER[game.sel[0]], ROSTER[game.sel[1]]).then(startMatch);
+  }, 900);
 }
 function selBack() {
   if (game.conf[1] && game.mode !== 'cpu') { game.conf[1] = false; game.p[1].state = 'idle'; }
@@ -178,7 +185,7 @@ function startMatch() {
 function startRound() {
   const [a, b] = game.p;
   clearFx(); clearFloaters();
-  a.resetRound(-3); b.resetRound(3);
+  a.resetRound(-3); b.resetRound(3); resetPolls();
   for (const f of [a, b]) enterStage(f); // per-character round intros (33)
   game.phase = 'intro'; game.phaseT = 0; game.introStep = 0; game.timer = 60; game.timeScale = 1; game.wind = 0; game.windT = rand(4, 8);
   showScreen(null);
@@ -206,32 +213,42 @@ function nextRoundOrResult() {
 function showResult() {
   const [a, b] = game.p;
   game.phase = 'result';
-  const w = a.wins === b.wins ? null : a.wins > b.wins ? a : b;
+  const w = a.wins === b.wins ? null : a.wins > b.wins ? a : b, l = w === a ? b : a;
   const rImg = $('#rImg');
   if (w) {
-    $('#rTitle').textContent = `${w.def.short} WINS!`;
-    $('#rSub').textContent = w.hp >= 99 ? 'LANDSLIDE VICTORY' : w.hp < 15 ? 'Won on special votes.' : 'Majority secured.';
+    fillNewspaper(w, l, { roundsWon:w.wins, roundsLost:l.wins, hpLeft:w.hp });
     $('#rQuote').textContent = `“${w.def.win}” — ${w.def.ending}`;
     rImg.src = portraits[w.def.id]; rImg.style.display = ''; rImg.style.setProperty('--c', hex(w.def.pcol));
-    w.state = 'victory';
+    w.state = 'victory'; l.state = l.state === 'ko' ? 'ko' : 'lose';
+    if (game.mode === '2p' || w === a) saveWin({ fighter:w.def.id, arena:stage.id }); // unlocks gallery art
   } else {
-    $('#rTitle').textContent = 'HUNG PARLIAMENT';
+    $('#result .masthead').textContent = 'THE DAILY BEEHIVE';
+    $('#rHead').textContent = 'HUNG PARLIAMENT';
     $('#rSub').textContent = 'Nobody governs. Coalition talks expected to take six weeks.';
     $('#rQuote').textContent = '';
     rImg.style.display = 'none';
   }
   showScreen('result'); $('#hud').classList.remove('on'); $('#meters').classList.remove('on');
 }
+function openGallery() {
+  renderGallery(ROSTER, STAGES, key => { const [k, id] = key.split(':'); return k === 'fighter' ? portraits[id] : arenaArt[id]; });
+  game.phase = 'gallery'; showScreen('gallery');
+}
 function rematch() { if (game.phase === 'result') startMatch(); }
 function togglePause() {
   if (game.phase === 'paused') { game.phase = game.prevPhase; showScreen(null); }
-  else if (['fight', 'intro', 'ko'].includes(game.phase)) { game.prevPhase = game.phase; game.phase = 'paused'; showScreen('pause'); window.speechSynthesis?.cancel(); }
+  else if (['fight', 'intro', 'ko'].includes(game.phase)) {
+    fillOrderPaper({ round:game.round, timer:game.timer, a:game.p[0].def, b:game.p[1].def, venue:stage.name });
+    game.prevPhase = game.phase; game.phase = 'paused'; showScreen('pause'); window.speechSynthesis?.cancel(); }
 }
 
 function menuKey(code) {
   if (code === 'KeyM') { setMuted(!muted); if (muted) window.speechSynthesis?.cancel(); floater(muted ? 'SOUND OFF' : 'SOUND ON', camPos.x, 4.5, { size:22 }); return; }
   if (code === 'KeyV') { setVoicesOn(!voicesOn); if (!voicesOn) window.speechSynthesis?.cancel(); floater(voicesOn ? 'VOICES ON' : 'VOICES OFF', camPos.x, 4.5, { size:22 }); return; }
   switch (game.phase) {
+    case 'gallery':
+      if (code === 'Escape' || code === 'Backspace' || code === 'Enter') { game.phase = 'title'; showScreen('title'); }
+      break;
     case 'title':
       if (code === 'Enter' || code === 'Space') toSelect('cpu');
       if (code === 'Digit2') toSelect('2p');
@@ -263,6 +280,8 @@ $('#bQuit').onclick = () => { window.speechSynthesis?.cancel(); toTitle(); };
 $('#bRematch').onclick = rematch;
 $('#bChars').onclick = () => toSelect();
 $('#bMenu').onclick = toTitle;
+$('#bGallery').onclick = openGallery;
+$('#bGalBack').onclick = () => { game.phase = 'title'; showScreen('title'); };
 
 // =====================================================================
 

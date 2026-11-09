@@ -8,6 +8,7 @@ import { EMPTY, ctrlFor, padBuf, pollPads, pressed } from './input.js';
 import { camera, renderer, scene } from './renderer.js';
 import { touchFrame, updateTouchUI } from './touchui.js';
 import { shakeOffset } from './anim.js';
+import { hideNameCards, showNameCards, updatePolls } from './screens.js';
 import { $, BOUND, MAXSEP, clamp, damp, pick, rand } from './util.js';
 
 // Camera / HUD / main loop
@@ -47,6 +48,7 @@ function updateHUD(dt) {
     el.pips.forEach((p, k) => p.classList.toggle('won', f.wins > k));
   });
   $('#timer').textContent = Math.ceil(game.timer);
+  updatePolls(ps, game.timer, dt); // poll % ticker and ballot count (83, 84)
 }
 function separate(a, b) {
   const dx = b.x - a.x, ad = Math.abs(dx), minD = .48 * (a.def.build.w * a.def.build.h + b.def.build.w * b.def.build.h);
@@ -111,9 +113,10 @@ function tick(dt) {
       banner(fin ? 'FINAL ROUND' : `ROUND ${game.round}`, stage.name, 1200);
       say(fin ? 'Final round' : `Round ${game.round}`, { pitch:.6, rate:.95 });
       bubble(a, pick(a.def.intro), { dur:1.6 });
+      showNameCards(a.def, b.def); // big comic name cards (82)
     }
     if (game.introStep === 1 && game.phaseT > 1.1) { game.introStep = 2; bubble(b, pick(b.def.intro), { dur:1.4 }); }
-    if (game.introStep === 2 && game.phaseT > 1.75) { game.introStep = 3; banner('FIGHT!', '', 700); say('Fight!', { pitch:.6 }); sfx.bell(); }
+    if (game.introStep === 2 && game.phaseT > 1.75) { game.introStep = 3; hideNameCards(); banner('FIGHT!', '', 700); say('Fight!', { pitch:.6 }); sfx.bell(); }
     if (game.phaseT > 2.2) { game.phase = 'fight'; for (const f of game.p) if (f.state === 'intro') { f.state = 'idle'; f.x = f.introX; } }
   } else if (game.phase === 'fight') {
     game.timer -= sdt;

@@ -160,6 +160,10 @@ class Pn { // canvas painter with ink outlines and cel-shaded blobs
 const BD = { W:4096, H:1024, GY:950 };
 function backdrop(g, paint, { kerb = 0xe8e2d4, R = 27, cz = 8, arc = 2.45, h = 16, y0 = -1.2 } = {}) {
   const p = new Pn(BD.W, BD.H); paint(p, BD.W, BD.H, BD.GY); p.grain();
+  if (stage && !arenaArt[stage.id]) { // gallery thumbnail: the middle of the panorama
+    const t = document.createElement('canvas'); t.width = t.height = 256;
+    t.getContext('2d').drawImage(p.c, 1400, 260, 1250, 690, -40, 0, 336, 256); arenaArt[stage.id] = t.toDataURL('image/jpeg', .8);
+  }
   const geo = new THREE.CylinderGeometry(R, R, h, 120, 1, true, Math.PI - arc / 2, arc);
   const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i));
   const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map:p.tex(), side:THREE.BackSide, fog:false }));
@@ -535,6 +539,7 @@ const STAGES = [
 ];
 
 let stageGroup = null, stage = null;
+const arenaArt = {}; // id -> thumbnail data URL
 function buildStage(st) {
   if (stageGroup) { scene.remove(stageGroup); disposeObj(stageGroup); }
   stageGroup = new THREE.Group(); scene.add(stageGroup); stage = st;
@@ -547,4 +552,4 @@ function buildStage(st) {
 
 // =====================================================================
 
-export { INK, shade, Pn, BD, backdrop, floor, paintBeehive, paintParliament, paintSkyTower, paintCathedral, paintSteamer, paintTreatyHouse, paintVolcano, paintDC3, hills, STAGES, stageGroup, stage, buildStage };
+export { arenaArt, INK, shade, Pn, BD, backdrop, floor, paintBeehive, paintParliament, paintSkyTower, paintCathedral, paintSteamer, paintTreatyHouse, paintVolcano, paintDC3, hills, STAGES, stageGroup, stage, buildStage };

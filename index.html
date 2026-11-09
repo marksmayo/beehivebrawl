@@ -16,6 +16,86 @@
   button { font:inherit; cursor:pointer; }
 
   /* comic overlays */
+  /* ---- comic cover title (86) ---- */
+  #title .cover { position:relative; padding:10px 26px 14px; border:6px solid #000; background:linear-gradient(160deg,#ffe066,#ff8a2a 60%,#e0141e); box-shadow:12px 12px 0 #000; transform:rotate(-1.5deg); }
+  #title .cover .cvTop { display:flex; justify-content:space-between; align-items:center; font:900 13px Inter,sans-serif; letter-spacing:.1em; color:#000; }
+  #title .cover .cvBadge { font-family:Bangers,Impact; font-size:20px; background:#fff; border:3px solid #000; padding:0 8px; transform:rotate(4deg); }
+  #title .cover .price { background:#000; color:#ffd23f; padding:2px 8px; }
+  #title .cover h1 { font-size:clamp(52px,min(10vw,17vh),140px); }
+  #title .cover .kicker { color:#ffd23f; }
+  #title .cover .cast { display:flex; justify-content:center; margin-top:6px; }
+  #title .cover .cast img { width:clamp(44px,6.5vw,86px); aspect-ratio:1; object-fit:cover; background:var(--c); border:3px solid #000; box-shadow:3px 3px 0 #000;
+    margin:0 -6px; transform:rotate(calc((var(--i) - 3.5) * 4deg)) translateY(calc(abs(var(--i) - 3.5) * 3px)); animation:castIn .5s backwards; animation-delay:calc(var(--i) * 70ms); }
+  @keyframes castIn { from { transform:translateY(60px) scale(.4); opacity:0; } }
+  /* ---- VS splash with the tale of the tape (81) ---- */
+  #vs { position:fixed; inset:0; z-index:40; display:none; align-items:stretch; background:#0b0d12; }
+  #vs.on { display:flex; }
+  #vs .vsSide { flex:1; position:relative; padding:3vh 3vw; color:#fff; overflow:hidden; background:linear-gradient(135deg,var(--c),#0b0d12 85%); animation:vsInL .35s cubic-bezier(.2,1.4,.4,1); }
+  #vs .vsSide.r { background:linear-gradient(225deg,var(--c),#0b0d12 85%); text-align:right; animation-name:vsInR; }
+  @keyframes vsInL { from { transform:translateX(-100%); } } @keyframes vsInR { from { transform:translateX(100%); } }
+  #vs img { width:min(26vh,190px); aspect-ratio:1; object-fit:cover; border:5px solid #000; box-shadow:8px 8px 0 #000; background:var(--c); }
+  #vs .vsSide.r img { transform:scaleX(-1); }
+  #vs .vsName { font-family:Bangers,Impact; font-size:clamp(28px,4.4vw,58px); line-height:1; -webkit-text-stroke:2px #000; text-shadow:4px 4px 0 #000; margin-top:8px; }
+  #vs .vsNick { font:800 13px Inter,sans-serif; letter-spacing:.14em; text-transform:uppercase; opacity:.85; }
+  #vs table { margin-top:10px; border-collapse:collapse; font:700 12px Inter,sans-serif; width:100%; max-width:440px; }
+  #vs .vsSide.r table { margin-left:auto; }
+  #vs th { text-align:left; padding:3px 10px 3px 0; font-family:Bangers,Impact; font-weight:400; font-size:16px; letter-spacing:.06em; color:#ffd23f; width:30%; }
+  #vs .vsSide.r th { text-align:right; padding:3px 0 3px 10px; }
+  #vs td { padding:3px 0; text-shadow:1px 1px 0 #000; }
+  #vs .bar { display:inline-block; width:100%; height:12px; background:#0006; border:2px solid #000; }
+  #vs .bar i { display:block; height:100%; background:#fff; }
+  #vs .bar.edge i { background:#ffd23f; box-shadow:0 0 10px #ffd23f; }
+  #vs .vsBurst { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-8deg); font-family:Bangers,Impact; font-size:clamp(80px,14vw,180px); color:#ffd23f;
+    -webkit-text-stroke:5px #000; text-shadow:8px 8px 0 #e0141e, 14px 14px 0 #000; animation:vsBurst .45s .25s cubic-bezier(.2,1.8,.4,1) backwards; z-index:2; }
+  @keyframes vsBurst { from { transform:translate(-50%,-50%) scale(4) rotate(20deg); opacity:0; } }
+  @media (max-height:520px) { #vs table { font-size:10px; } #vs th { font-size:12px; } #vs img { width:20vh; } #vs tr:nth-child(n+7) { display:none; } }
+  /* ---- round name cards (82) ---- */
+  #namecards .ncard { position:fixed; top:30%; z-index:25; padding:6px 22px 8px; background:var(--c); border:5px solid #000; box-shadow:8px 8px 0 #000; color:#fff;
+    transition:transform .35s cubic-bezier(.2,1.5,.4,1); pointer-events:none; }
+  #namecards .ncard.l { left:0; transform:translateX(-110%) skewX(-8deg); } #namecards .ncard.r { right:0; transform:translateX(110%) skewX(-8deg); text-align:right; }
+  #namecards .ncard.on { transform:translateX(0) skewX(-8deg); }
+  #namecards b { display:block; font:400 clamp(34px,5vw,64px)/1 Bangers,Impact; -webkit-text-stroke:2px #000; text-shadow:4px 4px 0 #000; }
+  #namecards span { font:800 12px Inter,sans-serif; letter-spacing:.12em; text-transform:uppercase; text-shadow:1px 1px 0 #000; }
+  /* ---- polling-graph health bars and the ballot-count clock (83, 84) ---- */
+  .poll { font:900 13px Inter,sans-serif; color:#fff; background:#111; border:2px solid #fff; padding:0 5px; font-variant-numeric:tabular-nums; }
+  .bar .grid { position:absolute; inset:0; background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 2px),#0005 calc(10% - 2px) 10%); pointer-events:none; }
+  #ballot { position:relative; background:#fff; border:4px solid #000; box-shadow:4px 4px 0 #000; padding:4px 8px 2px; min-width:86px; }
+  #ballot .slot { position:absolute; left:50%; top:-4px; width:40%; height:7px; background:#000; transform:translateX(-50%); }
+  #ballot #timer { color:#e0141e; -webkit-text-stroke:2px #000; text-shadow:3px 3px 0 #000; }
+  #ballot .bl { font:900 9px Inter,sans-serif; letter-spacing:.14em; color:#111; }
+  #ballot.final { animation:pulse .35s infinite alternate; }
+  /* ---- order paper (89), newspaper (85), gallery (88) ---- */
+  #pause .orderpaper { background:#f4f0e2; text-align:left; font-family:Georgia,'Times New Roman',serif; transform:rotate(.5deg); }
+  #pause .orderpaper h1 { color:#1b3a2a; -webkit-text-stroke:0; text-shadow:none; font-family:Georgia,serif; font-weight:700; letter-spacing:.06em; border-bottom:3px double #1b3a2a; padding-bottom:6px; }
+  #pause .orderpaper .op { margin:12px 0 6px 20px; padding:0; font-size:17px; line-height:1.5; } .orderpaper .op li { margin:4px 0; }
+  #result .paper { background:#f6f1e3; font-family:Georgia,'Times New Roman',serif; max-width:760px; text-align:left; transform:rotate(-.6deg); }
+  #result .paper .masthead { font:900 clamp(30px,5vw,56px)/1 'Old English Text MT',Georgia,serif; text-align:center; border-bottom:4px double #111; letter-spacing:.02em; }
+  #result .paper .dateline { display:flex; justify-content:space-between; font:700 11px Georgia,serif; letter-spacing:.08em; text-transform:uppercase; border-bottom:2px solid #111; padding:3px 0; margin-bottom:8px; }
+  #result .paper h1 { font-family:Georgia,'Times New Roman',serif; font-weight:900; color:#111; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(28px,4.6vw,52px); line-height:1.02; text-align:center; }
+  #result .paper .pcols { display:flex; gap:16px; align-items:flex-start; margin-top:10px; }
+  #result .paper img { flex:none; filter:grayscale(.85) contrast(1.2); }
+  #result .paper p { font-family:Georgia,serif; font-size:16px; } .paper .lede { font-weight:700; }
+  #gallery .gal { max-width:900px; } #gallery .gal #galleryGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-top:12px; max-height:60vh; overflow:auto; }
+  #gallery .gi { border:3px solid #000; background:#ddd; box-shadow:4px 4px 0 #000; padding:4px; }
+  #gallery .gi img { width:100%; height:auto; aspect-ratio:1; object-fit:cover; margin:0; box-shadow:none; border-width:2px; }
+  #gallery .gi .lock { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font:400 54px Bangers,Impact; color:#888; background:repeating-linear-gradient(45deg,#ccc 0 8px,#bbb 8px 16px); }
+  #gallery .gi .gt { font:400 15px Bangers,Impact; margin-top:3px; } #gallery .gi .gh { font-size:10px; color:#555; }
+  #gallery .gi.unlocked { background:#fff8e6; }
+  /* short landscape screens (phones): cover and menu side by side, no keyboard help */
+  @media (max-height:520px) {
+    #title { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px; padding:8px; }
+    #title .cover { padding:4px 14px 6px; max-width:58vw; }
+    #title .cover h1 { font-size:clamp(34px,13vh,60px); text-shadow:4px 4px 0 #000, 7px 7px 0 #e0141e; -webkit-text-stroke:3px #000; }
+    #title .cover .tagline { display:none; } #title .cover .cast img { width:clamp(26px,9vh,44px); }
+    #title .controls, #title .disclaimer { display:none; }
+    #title .menu .btn { font-size:20px; padding:5px 14px; min-width:200px; }
+    #pause .orderpaper { padding:10px 18px; } #pause .orderpaper .op { font-size:13px; margin:6px 0 4px 18px; } #pause .orderpaper h1 { font-size:34px; }
+    #result .paper { padding:10px 16px; } #result .paper h1 { font-size:26px; } #result .paper img { width:84px; height:84px; } #result .paper .masthead { font-size:26px; }
+  }
+  @media (max-height:520px) and (max-width:760px) { .pparty { display:none; } .poll { font-size:11px; padding:0 3px; } .pname { font-size:15px; } }
+  /* bio quote bubble on the select screen (87) */
+  .info .quote { position:relative; display:inline-block; background:#fff; border:3px solid #000; border-radius:14px; padding:3px 10px; margin-top:6px; font:700 13px 'Comic Neue','Comic Sans MS',cursive; }
+  .info .quote::after { content:''; position:absolute; left:18px; bottom:-10px; border:7px solid transparent; border-top-color:#000; }
   /* on-screen touch controls (src/touchui.js) */
   #touch { position:fixed; inset:0; z-index:30; display:none; touch-action:none; user-select:none; -webkit-user-select:none; }
   #touch.on { display:block; }
@@ -232,17 +312,17 @@
   <div class="pside l" id="hp0">
     <img class="pimg" alt="">
     <div class="pcol">
-      <div class="plabel"><span class="tag">P1</span><span class="pname"></span><span class="pparty"></span></div>
-      <div class="bar"><div class="lag"></div><div class="fill"></div></div>
+      <div class="plabel"><span class="tag">P1</span><span class="pname"></span><span class="pparty"></span><span class="poll">100%</span></div>
+      <div class="bar"><div class="lag"></div><div class="fill"></div><div class="grid"></div></div>
       <div class="pips"><span class="pip"></span><span class="pip"></span></div>
     </div>
   </div>
-  <div id="timerBox"><div id="timer">60</div><div id="venue"></div></div>
+  <div id="timerBox"><div id="ballot"><div class="slot"></div><div id="timer">60</div><div class="bl">COUNTING</div></div><div id="venue"></div></div>
   <div class="pside r" id="hp1">
     <img class="pimg" alt="">
     <div class="pcol">
-      <div class="plabel"><span class="tag">P2</span><span class="pname"></span><span class="pparty"></span></div>
-      <div class="bar"><div class="lag"></div><div class="fill"></div></div>
+      <div class="plabel"><span class="tag">P2</span><span class="pname"></span><span class="pparty"></span><span class="poll">100%</span></div>
+      <div class="bar"><div class="lag"></div><div class="fill"></div><div class="grid"></div></div>
       <div class="pips"><span class="pip"></span><span class="pip"></span></div>
     </div>
   </div>
@@ -256,16 +336,21 @@
 <div id="floaters"></div>
 <div id="superPanel"><img alt=""><div class="st"><div class="sk">SUPER MOVE</div><div class="sn"></div></div></div>
 <div id="banner"><div class="big"></div><div class="sub"></div></div>
+<div id="vs"></div>
+<div id="namecards"></div>
 
 <div id="title" class="screen">
-  <div class="logo">
+  <div class="logo cover">
+    <div class="cvTop"><span class="issue">No. 1</span><span class="cvBadge">#1 ISSUE!</span><span class="price">$2.50 NZ</span></div>
     <div class="kicker">A Parliamentary Fighting Game</div>
     <h1>BEEHIVE<br>BRAWL</h1>
     <div class="tagline">Question Time just got physical.</div>
+    <div class="cast"></div>
   </div>
   <div class="menu">
     <button class="btn" data-mode="cpu">1 Player vs CPU</button>
     <button class="btn ghost" data-mode="2p">2 Players</button>
+    <button class="btn ghost small" id="bGallery">Gallery</button>
     <div class="diff">CPU: <button data-d="0">Backbencher</button><button data-d="1" class="on">Minister</button><button data-d="2">Prime Minister</button></div>
   </div>
   <div class="controls">
@@ -301,20 +386,29 @@
 </div>
 
 <div id="pause" class="screen hidden">
-  <div class="panel">
-    <div class="k">The House is adjourned</div>
-    <h1>PAUSED</h1>
+  <div class="panel orderpaper">
+    <div class="k">House of Representatives · The House is adjourned</div>
+    <h1>ORDER PAPER</h1>
+    <ol class="op"></ol>
     <div class="btns"><button class="btn small" id="bResume">Resume</button><button class="btn small ghost" id="bQuit">Quit to menu</button></div>
   </div>
 </div>
 
+<div id="gallery" class="screen hidden">
+  <div class="panel gal">
+    <div class="k">Unlocked by winning matches</div>
+    <h1>GALLERY</h1>
+    <div id="galleryGrid"></div>
+    <div class="btns"><button class="btn small" id="bGalBack">Back</button></div>
+  </div>
+</div>
+
 <div id="result" class="screen hidden">
-  <div class="panel">
-    <div class="k">Official election result</div>
-    <img id="rImg" alt="">
-    <h1 id="rTitle"></h1>
-    <p id="rSub"></p>
-    <p class="q" id="rQuote"></p>
+  <div class="panel paper">
+    <div class="masthead"></div>
+    <div class="dateline"><span id="rDate"></span><span>ELECTION SPECIAL · PRICE: ONE VOTE</span></div>
+    <h1 id="rHead"></h1>
+    <div class="pcols"><img id="rImg" alt=""><div><p class="lede" id="rSub"></p><p class="q" id="rQuote"></p></div></div>
     <div class="btns">
       <button class="btn small" id="bRematch">Rematch</button>
       <button class="btn small ghost" id="bChars">Change candidates</button>
