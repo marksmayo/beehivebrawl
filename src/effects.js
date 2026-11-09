@@ -37,6 +37,25 @@ function impactStar(x, y, color = 0xffffff, size = 1) { // flat comic impact sta
   addFx({ update(dt) { t += dt; const k = size * (.4 + t * 5); m.scale.setScalar(k); m.material.opacity = ol.material.opacity = 1 - t / .2; return t < .2; },
     dispose() { scene.remove(m); m.geometry.dispose(); m.material.dispose(); ol.material.dispose(); } });
 }
+const dustGeo = new THREE.SphereGeometry(.3, 8, 6);
+function dust(x, size = .5, n = 5) { // cartoon dust puffs at the feet (landings, dashes, KOs)
+  const mat = toon(0xe8dcc4, { opacity:.9 }), puffs = [];
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(dustGeo, mat); m.position.set(x + rand(-.4, .4) * size * 2, .15, rand(-.4, .4)); m.scale.setScalar(size * rand(.6, 1.1)); scene.add(m);
+    puffs.push({ m, vx:rand(-1.4, 1.4), s:m.scale.x });
+  }
+  let t = 0;
+  addFx({ update(dt) { t += dt; for (const p of puffs) { p.m.position.x += p.vx * dt; p.m.position.y += dt * .5; p.m.scale.setScalar(p.s * (1 + t * 2.5)); } mat.opacity = Math.max(0, .9 - t * 1.6); return t < .55; },
+    dispose() { puffs.forEach(p => scene.remove(p.m)); mat.dispose(); } });
+}
+// motion trail for a fast limb: a fading arc swept around the joint (smear, item 35)
+function trail(f, part, from, to) {
+  const g = new THREE.RingGeometry(.35, .8, 20, 1, Math.min(from, to), Math.abs(to - from));
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.55, side:THREE.DoubleSide, depthWrite:false }));
+  part.getWorldPosition(m.position); m.position.z += .35; m.scale.x = f.facing; m.rotation.z = -Math.PI / 2 * f.facing; scene.add(m);
+  let t = 0;
+  addFx({ update(dt) { t += dt; m.material.opacity = .55 * (1 - t / .18); return t < .18; }, dispose() { rm(m); } });
+}
 function ringFx(x, y, color, flat = false, max = 9, life = .4) {
   const m = new THREE.Mesh(new THREE.TorusGeometry(.5, .09, 8, 36), new THREE.MeshBasicMaterial({ color, transparent:true }));
   m.position.set(x, y, 0); if (flat) m.rotation.x = Math.PI / 2; scene.add(m);
@@ -282,4 +301,4 @@ function fxHeal(owner) {
 
 // =====================================================================
 
-export { effects, addFx, updateFx, clearFx, rm, sparkGeo, sparks, impactStar, ringFx, marker, projMesh, spawnProjectile, trainMesh, bikeMesh, fxDrop, fxEruption, fxHole, fxRain, fxPillar, fxHeal };
+export { effects, addFx, updateFx, clearFx, rm, sparkGeo, sparks, dust, trail, impactStar, ringFx, marker, projMesh, spawnProjectile, trainMesh, bikeMesh, fxDrop, fxEruption, fxHole, fxRain, fxPillar, fxHeal };

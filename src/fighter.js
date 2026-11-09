@@ -3,12 +3,18 @@ import { INK, Pn, stage } from './arenas.js';
 import { say, sfx } from './audio.js';
 import { applyHit } from './combat.js';
 import { bubble, bubbles, floater } from './dom.js';
-import { bikeMesh, fxDrop, fxEruption, fxHeal, fxHole, fxPillar, fxRain, ringFx, rm, sparks, spawnProjectile, trainMesh } from './effects.js';
+import { bikeMesh, dust, effects, trail, fxDrop, fxEruption, fxHeal, fxHole, fxPillar, fxRain, ringFx, rm, sparks, spawnProjectile, trainMesh } from './effects.js';
 import { game } from './game.js';
-import { disposeObj, ink, outline, toon } from './kit.js';
+import { disposeObj, ink, inkMaterial, outline, toon } from './kit.js';
 import { PARTS } from './parts.js';
 import { scene } from './renderer.js';
-import { BOUND, GRAV, JUMP, SPEED, clamp, damp, hex } from './util.js';
+import { BOUND, GRAV, JUMP, SPEED, clamp, damp, hex, pick } from './util.js';
+import {
+  GUARD, JOINTS, pose as mkPose, layer, attackPose, idlePose, walkPose, walkPhase, WALK, hitPose, koBody, koStep, wakeup, DOWN_TIME,
+  DashDetector, DASH_TIME, dashSpeed, approachSpeed, flipAngle, isThrow, THROWS, THROW_DMG, throwPose, TAUNT_TIME, tauntReward, tauntPose,
+  INTROS, VICTORY, loserPose, smearStretch, Spring, TURN_TIME, turnAngle, wantsGuard, guardPose, ATTACK_HEIGHT,
+} from './anim.js';
+import { skinnedLimb } from './rig.js';
 
 // Fighter
 
@@ -17,6 +23,7 @@ const ATK = {
   kick: { s:.14, a:.11, r:.26, dmg:9, range:1.75, knock:5.5, stun:.42 },
 };
 const COOL = { a:2.1, b:2.9 };
+const FLIP_Y = 1.3; // somersault pivot height (hips)
 const G_CAP = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 14);
 
 // =====================================================================
@@ -110,10 +117,13 @@ function paintFace(d, mode) {
 class Fighter {
   constructor(def, side) {
     this.def = def; this.side = side; this.mats = [];
-    this.root = new THREE.Group(); this.yaw = new THREE.Group(); this.pose = new THREE.Group();
-    this.root.add(this.yaw); this.yaw.add(this.pose);
+    // root (position) > yaw (facing) > flipG (somersaults, pivots at the hips) > pose (lean, pivots at the feet)
+    this.root = new THREE.Group(); this.yaw = new THREE.Group(); this.flipG = new THREE.Group(); this.pose = new THREE.Group();
+    this.root.add(this.yaw); this.yaw.add(this.flipG); this.flipG.add(this.pose);
+    this.flipG.position.y = FLIP_Y;
     this.build();
     this.wins = 0; this.meter = 0; this.comebackUsed = false; this.opp = null; this.vehicle = null; this.belt = null;
+    this.dash = new DashDetector(); this.cp = { ...GUARD }; this.hairSpring = new Spring(70, 7); this.tieSpring = new Spring(55, 5);
     this.resetRound(side ? 3 : -3);
   }
   M(color, o = {}) { const m = toon(color, o); this.mats.push(m); return m; }
@@ -222,27 +232,37 @@ class Fighter {
     const torso = new THREE.Group(); torso.position.y = 1.42; torso.scale.set(w, 1, w); P.add(torso);
     const neck = this.mesh(new THREE.CylinderGeometry(.15, .17, .3, 16), skinP, 0); neck.position.y = 1.98; P.add(neck);
     const H = this.head = new THREE.Group(); H.position.y = 2.5; P.add(H);
+    // hair and tie hang off springy pivots (secondary motion): at the crown, and at the knot
+    this.hairPivot = new THREE.Group(); this.hairPivot.position.set(-.05, .5, 0); H.add(this.hairPivot);
+    this.tiePivot = new THREE.Group(); this.tiePivot.position.set(.3, .5, 0); torso.add(this.tiePivot);
     for (const [role, src] of Object.entries(K)) {
       if (!roles[role]) continue;
       const body = ['jacket', 'lapel', 'shirt', 'tie', 'button'].includes(role);
-      part(body ? torso : H, src, roles[role], noInk.has(role) ? 0 : ol);
+      const parent = role === 'hair' ? this.hairPivot : role === 'tie' ? this.tiePivot : body ? torso : H;
+      const o = part(parent, src, roles[role], noInk.has(role) ? 0 : ol);
+      if (parent === this.hairPivot || parent === this.tiePivot) o.position.sub(parent.position);
     }
     this.mouth = new THREE.Group(); H.add(this.mouth); // expressions are texture swaps, see animate()
     this.addExtras(H);
 
-    const sleeve = (y, z) => {
-      const piv = new THREE.Group(); piv.position.set(0, y, z);
-      const seg = this.mesh(new THREE.CapsuleGeometry(.12, .44, 8, 16), suit, ol); seg.position.y = -.3; piv.add(seg);
-      const hand = new THREE.Group(); hand.position.y = -.6; hand.scale.setScalar(1.25); piv.add(hand);
-      part(hand, C.cuff, shirt, 0); part(hand, C.hand, skinP, ol / 1.25);
-      this.pose.add(piv); piv.seg = seg; return piv;
+    // skinned two-bone limbs: shoulder/elbow and hip/knee bend smoothly (see rig.js)
+    const limb = (y, z, r0, r1, len, m) => {
+      const L = skinnedLimb({ r0, r1, len, mat:m, ink:inkMaterial(ol) });
+      L.root.position.set(0, y, z); this.pose.add(L.root);
+      Object.assign(L.root, { elbow:L.lower, mesh:L.mesh, seg:L.mesh, end:L.end });
+      return L.root;
     };
-    const leg = (z) => {
-      const piv = new THREE.Group(); piv.position.set(0, .95, z);
-      const seg = this.mesh(new THREE.CapsuleGeometry(.16, .5, 8, 16), pants, ol); seg.position.y = -.38; piv.add(seg);
-      const foot = new THREE.Group(); foot.position.set(.03, -.8, 0); foot.scale.setScalar(1.15); piv.add(foot);
+    const sleeve = (y, z) => {
+      const piv = limb(y, z, .13, .11, .6, suit);
+      const hand = new THREE.Group(); hand.scale.setScalar(1.25); piv.end.add(hand);
+      part(hand, C.cuff, shirt, 0); part(hand, C.hand, skinP, ol / 1.25);
+      return piv;
+    };
+    const leg = z => {
+      const piv = limb(.95, z, .17, .14, .8, pants);
+      const foot = piv.foot = new THREE.Group(); foot.position.x = .03; foot.scale.setScalar(1.15); piv.end.add(foot);
       part(foot, C.shoe, mat(0x141414, { rough:.28, metal:.1 }), ol); part(foot, C.sole, mat(0x2a2420, { rough:.9 }), 0);
-      this.pose.add(piv); piv.seg = seg; return piv;
+      return piv;
     };
     const az = .5 * w + .03;
     this.armF = sleeve(1.84, az); this.armB = sleeve(1.84, -az);
@@ -260,7 +280,7 @@ class Fighter {
   }
   addProp() {
     if (this.def.prop === 'gavel') {
-      const gv = new THREE.Group(); gv.position.set(0, -.74, 0); this.armF.add(gv);
+      const gv = new THREE.Group(); if (this.armF.end) { gv.position.y = -.14; this.armF.end.add(gv); } else { gv.position.set(0, -.74, 0); this.armF.add(gv); }
       const wood = this.M(0x6b3e1e);
       const hd = this.mesh(new THREE.CylinderGeometry(.04, .04, .7, 8), wood, .02); hd.rotation.z = Math.PI / 2; hd.position.x = .3; gv.add(hd);
       const gh = this.mesh(new THREE.CylinderGeometry(.13, .13, .42, 14), wood, .025); gh.position.x = .65; gv.add(gh);
@@ -268,7 +288,8 @@ class Fighter {
   }
   resetRound(x) {
     Object.assign(this, { x, y:0, vx:0, vy:0, hp:100, lag:100, facing:this.side ? -1 : 1, state:'idle', stateT:0, t:Math.random() * 5,
-      atk:null, sp:null, cool:{ a:0, b:0 }, flash:0, blockstun:0, stunDur:0, spin:0, combo:0, airAtk:false, squash:0, vanish:0 });
+      atk:null, sp:null, cool:{ a:0, b:0 }, flash:0, blockstun:0, stunDur:0, spin:0, combo:0, airAtk:false, squash:0, vanish:0,
+      guard:null, dashDir:0, walkPh:0, turnT:9, flipDir:0, airT:1, koB:null, launched:false, hitH:'high', hitDir:1, vIdx:0, introX:x, introT:0 });
     this.crown.visible = false; this.cleanupSpecial();
     this.pose.rotation.set(0, 0, 0); this.pose.position.y = 0; this.animate(1);
   }
@@ -281,56 +302,114 @@ class Fighter {
   dispose() { this.cleanupSpecial(); scene.remove(this.root); disposeObj(this.root); const b = bubbles.get(this); if (b) { b.el.remove(); bubbles.delete(this); } }
 
   update(dt, c) {
-    const o = this.opp;
-    this.t += dt; this.stateT += dt; this.flash -= dt;
+    const o = this.opp, id = this.def.id, spd = SPEED * this.def.stats.speed;
+    this.t += dt; this.stateT += dt; this.flash -= dt; this.turnT += dt;
     this.cool.a = Math.max(0, this.cool.a - dt); this.cool.b = Math.max(0, this.cool.b - dt);
     this.blockstun = Math.max(0, this.blockstun - dt);
-    const grounded = this.y <= 0 && this.vy <= 0;
+    const grounded = this.y <= 0 && this.vy <= 0, dashDir = this.dash.feed(c, this.t);
     switch (this.state) {
       case 'idle': case 'walk': case 'block': {
-        if (grounded) this.facing = o.x >= this.x ? 1 : -1;
-        if (c.down && grounded) { this.state = 'block'; this.vx = 0; break; }
-        if (this.state === 'block') { if (this.blockstun > 0) break; this.state = 'idle'; }
+        if (grounded) this.face(o.x >= this.x ? 1 : -1);
+        const near = Math.abs(o.x - this.x) < 4.5, threat = near && ['attack', 'special', 'throw'].includes(o.state) || this.projectileThreat();
+        const g = grounded ? wantsGuard(c, this.facing, threat) : null;
+        if (g) { this.state = 'block'; this.guard = g; this.vx = 0; break; }
+        if (this.state === 'block') { if (this.blockstun > 0) break; this.state = 'idle'; this.guard = null; }
         if (c.sup && this.meter >= 100) { this.startMove('s'); break; }
         if (c.spA && this.cool.a <= 0) { this.startMove('a'); break; }
         if (c.spB && this.cool.b <= 0) { this.startMove('b'); break; }
+        if (grounded && isThrow(c, o.x - this.x, this.facing) && o.y <= .05 && ['idle', 'walk', 'block', 'attack', 'taunt'].includes(o.state)) { this.startThrow(); break; }
         if (c.punch) { this.startAttack('punch'); break; }
         if (c.kick) { this.startAttack('kick'); break; }
+        if (c.taunt && grounded) { this.state = 'taunt'; this.stateT = 0; this.vx = 0; const q = pick(this.def.quips); bubble(this, q, { dur:1.1 }); say(q, { pitch:this.def.pitch }); break; }
+        if (dashDir && grounded) { this.state = 'dash'; this.stateT = 0; this.dashDir = dashDir; sfx.whoosh(); break; }
         const mv = (c.right ? 1 : 0) - (c.left ? 1 : 0);
-        if (c.up && grounded) { this.vy = JUMP; this.vx = mv * SPEED * this.def.stats.speed * .9; this.state = 'jump'; this.stateT = 0; this.squash = -.15; sfx.jump(); break; }
-        this.vx = mv * SPEED * this.def.stats.speed * (mv === -this.facing ? .78 : 1);
-        this.state = mv ? 'walk' : 'idle';
+        if (c.up && grounded) {
+          this.vy = JUMP; this.vx = mv * spd * .9; this.state = 'jump'; this.stateT = 0; this.squash = -.15;
+          this.flipDir = mv * this.facing; this.airT = 2 * JUMP / GRAV; sfx.jump(); break;
+        }
+        this.vx = approachSpeed(this.vx, mv * spd * (mv === -this.facing ? .78 : 1), dt); // ramp up and down (99)
+        this.state = mv || Math.abs(this.vx) > .4 ? 'walk' : 'idle';
         break;
       }
+      case 'dash':
+        this.vx = this.dashDir * dashSpeed(this.stateT) * this.def.stats.speed * (this.dashDir === this.facing ? 1 : .8);
+        if (Math.random() < dt * 30) dust(this.x - this.dashDir * .4, .4);
+        if (this.stateT >= DASH_TIME) this.state = 'idle';
+        break;
       case 'jump':
-        if (!this.airAtk && (c.punch || c.kick)) { this.airAtk = true; this.startAttack(c.kick ? 'kick' : 'punch'); }
+        if (!this.airAtk && (c.punch || c.kick)) { this.airAtk = true; this.flipDir = 0; this.startAttack(c.kick ? 'kick' : 'punch'); }
         break;
       case 'attack': this.updateAttack(dt); break;
       case 'special': this.updateSpecial(dt); break;
-      case 'hit': if (this.stateT >= this.stunDur && grounded) this.state = 'idle'; break;
-      case 'stunned': if (this.stateT >= this.stunDur && grounded) this.state = 'idle'; break;
+      case 'hit': case 'stunned':
+        if (this.launched && grounded && this.stateT > .1) { this.launched = false; this.state = 'down'; this.stateT = 0; this.rollDir = 0; dust(this.x, .5); sfx.thud(); break; }
+        if (this.stateT >= this.stunDur && grounded) this.state = 'idle';
+        break;
+      case 'down': { // knocked down: lie there, then get up, or roll if a direction is held
+        if (this.stateT < DOWN_TIME) this.rollDir = (c.right ? 1 : 0) - (c.left ? 1 : 0);
+        const w = wakeup(this.stateT, this.rollDir);
+        this.vx = w.phase === 'roll' ? w.dx / .45 : 0;
+        if (w.phase === 'done') { this.state = 'idle'; this.vx = 0; }
+        break;
+      }
+      case 'throw': this.updateThrow(); break;
+      case 'taunt':
+        this.vx = 0;
+        if (this.stateT >= TAUNT_TIME) { this.meter = Math.min(100, this.meter + tauntReward(false)); this.state = 'idle'; floater('+MANDATE', this.x, 3.4, { color:'#ffd23f', size:22 }); }
+        break;
+      case 'intro': {
+        const it = INTROS[id];
+        this.x = damp(this.x, this.introX, it?.entry === 'slide' ? 3 : 4, dt);
+        break;
+      }
       case 'hole':
         this.vx = 0; this.vy = 0;
         if (this.stateT < .6) this.y = -3.4 * (this.stateT / .6);
         else if (this.stateT > 1.25) { this.vy = 16; this.state = 'hit'; this.stunDur = .35; this.stateT = 0; }
         break;
     }
-    if (this.state !== 'hole') {
+    if (this.state !== 'hole' && this.state !== 'thrown') {
       this.vy -= GRAV * dt; this.y += this.vy * dt;
       if (this.y <= 0 && this.vy <= 0) {
         if (this.y < 0 || this.vy < -1) {
           if (this.vy < -6) this.squash = .22;
-          if (this.vy < -16) { game.shake(.2); sfx.thud(); }
+          if (this.vy < -16) { game.shake(.2); sfx.thud(); dust(this.x, .6); }
           if (this.state === 'jump') this.state = 'idle';
-          this.airAtk = false;
+          this.airAtk = false; this.flipDir = 0;
         }
         this.y = 0; this.vy = 0;
       }
     }
-    if (this.y <= 0 && ['hit', 'stunned', 'block', 'ko', 'victory', 'attack'].includes(this.state)) this.vx = damp(this.vx, 0, 8, dt);
-    this.x += this.vx * dt;
-    if (stage?.wind && this.state !== 'ko') this.x += game.wind * dt;
+    if (this.y <= 0 && ['hit', 'stunned', 'block', 'ko', 'victory', 'attack', 'taunt', 'throw', 'lose'].includes(this.state)) this.vx = damp(this.vx, 0, 8, dt);
+    const dx = this.vx * dt;
+    this.x += dx;
+    if (stage?.wind && !['ko', 'thrown', 'intro'].includes(this.state)) this.x += game.wind * dt;
+    // the walk cycle advances with distance travelled (forwards or backwards), so feet stay planted
+    if (this.state === 'walk') this.walkPh += Math.sign(dx * this.facing) * walkPhase(0, dx, WALK[id] ?? WALK.generic);
     this.animate(dt);
+  }
+  face(f) { if (f !== this.facing) { this.facing = f; this.turnT = 0; } }
+  projectileThreat() {
+    return effects.some(e => e.isProj && e.owner !== this && Math.abs(e.mesh.position.x - this.x) < 4.5 && Math.sign(this.x - e.mesh.position.x) === e.dir);
+  }
+  startThrow() {
+    const o = this.opp;
+    this.state = 'throw'; this.stateT = 0; this.vx = 0; this.thrownDone = false;
+    o.cleanupSpecial(); Object.assign(o, { state:'thrown', stateT:0, atk:null, sp:null, vx:0, vy:0, guard:null });
+    floater(THROWS[this.def.id]?.name ?? 'THROW!', this.x, 3.7, { color:'#ffd23f', size:30, life:1.1 });
+    sfx.whoosh();
+  }
+  updateThrow() {
+    const o = this.opp, F = this.facing, t = this.stateT;
+    if (!this.thrownDone && o.state === 'thrown') { // lift them over our head and toss them behind us
+      const u = clamp((t - .12) / .33, 0, 1);
+      o.x = this.x + F * (.9 - 1.9 * u); o.y = Math.sin(u * Math.PI) * 1.9; o.spin = u * Math.PI * F;
+      if (u >= 1) {
+        this.thrownDone = true; o.y = .5; o.spin = 0; o.state = 'hit';
+        applyHit(this, o, { dmg:THROW_DMG, knock:5, launch:6, stun:.5, heavy:true, unblockable:true, kind:'throw', hy:1.3 });
+      }
+    }
+    if (t >= .75) this.state = 'idle';
   }
 
   startAttack(type) {
@@ -344,7 +423,7 @@ class Fighter {
       const dx = (o.x - this.x) * this.facing;
       if (dx > -.2 && dx < d.range * this.def.build.h + .35 && Math.abs(o.y - this.y) < 1.7) {
         a.done = true;
-        applyHit(this, o, { dmg:d.dmg, knock:d.knock, stun:d.stun, heavy:a.type === 'kick', hy:a.type === 'kick' ? 1.3 : 1.9 });
+        applyHit(this, o, { dmg:d.dmg, knock:d.knock, stun:d.stun, heavy:a.type === 'kick', hy:a.type === 'kick' ? 1.3 : 1.9, kind:a.type, height:this.y > .05 ? 'high' : ATTACK_HEIGHT[a.type] });
       }
     }
     if (a.t >= d.s + d.a + d.r) this.state = this.y > 0 ? 'jump' : 'idle';
@@ -454,62 +533,104 @@ class Fighter {
   }
 
   animate(dt) {
-    const s = this.state, t = this.t, d = this.def;
-    let aF = 1.0, aB = .6, lF = .25, lB = -.2, lean = -.06, py = Math.sin(t * 4) * .025, head = 0, mouth = .25, ko = false, stretch = 1;
+    const s = this.state, t = this.t, d = this.def, id = d.id;
+    let p, mouth = .25, k = 22, flip = 0, ko = 0;
     switch (s) {
-      case 'walk': { const ph = Math.sin(t * 11); lF = ph * .55; lB = -ph * .55; aF = 1 + ph * .2; aB = .6 - ph * .2; py = Math.abs(Math.cos(t * 11)) * .06; break; }
-      case 'jump': lF = 1.1; lB = .3; aF = 1.7; aB = 1.3; lean = -.12; break;
-      case 'block': aF = 2.5; aB = 2.3; lean = .14; lF = .35; lB = -.35; py = -.08; head = .15; break;
-      case 'hit': lean = .5; aF = -.4; aB = -.6; head = .45; mouth = 1; break;
-      case 'stunned': lean = .15 + Math.sin(t * 6) * .12; head = Math.sin(t * 5) * .3; aF = .2; aB = .2; mouth = .8; break;
-      case 'hole': aF = 2.9; aB = 2.9; mouth = 1; break;
-      case 'ko': ko = true; aF = 2.2; aB = 2.6; lF = .3; lB = -.1; mouth = 1; break;
-      case 'victory': aF = Math.PI - .2 + Math.sin(t * 8) * .25; aB = .2; py = Math.abs(Math.sin(t * 5)) * .25; lean = -.05; mouth = .9; break;
-      case 'attack': {
-        const a = this.atk, dd = a.d, ph = a.t < dd.s ? 0 : a.t < dd.s + dd.a ? 1 : 2;
-        if (a.type === 'punch') { aF = [.5, Math.PI / 2 + .05, 1.3][ph]; lean = [.05, -.25, -.08][ph]; aB = .4; mouth = .8; if (ph === 1) stretch = 1.3; }
-        else { lF = [.9, 1.6, .6][ph]; lB = -.25; lean = [.0, .32, .1][ph]; aF = .7; aB = .1; if (ph === 1) stretch = 1.25; }
-        if (this.y > .05) lB = .7;
+      case 'idle': p = idlePose(id, t); break;
+      case 'walk': p = walkPose(id, this.walkPh); break;
+      case 'dash': p = mkPose({ lean:-.38 * (this.dashDir === this.facing ? 1 : -1), aFs:.3, aFe:1.2, aBs:-.4, aBe:1, lFh:.8, lFk:.7, lBh:-.6, lBk:.4, py:-.06 }); k = 30; break;
+      case 'jump':
+        p = mkPose({ lFh:1.1, lFk:1.5, lBh:.4, lBk:1.4, aFs:1.7, aFe:1.4, aBs:1.3, aBe:1.6, lean:-.12 });
+        if (this.flipDir) flip = flipAngle(this.stateT, this.airT) * this.flipDir;
+        break;
+      case 'block': p = guardPose(this.guard); k = 30; break;
+      case 'hit': p = hitPose(this.hitH, this.hitDir, this.stateT); mouth = 1; k = 30; break;
+      case 'stunned': p = layer(hitPose('mid', 1, .4), mkPose({ lean:.15 + Math.sin(t * 6) * .12, head:Math.sin(t * 5) * .3 }), 1); mouth = .8; break;
+      case 'hole': p = mkPose({ aFs:2.9, aBs:2.9, aFe:.2, aBe:.2 }); mouth = 1; break;
+      case 'thrown': p = hitPose('high', -1, 0); mouth = 1; k = 30; break;
+      case 'ko': { // ragdoll-ish fall: tips over, bounces, settles (26)
+        this.koB ??= koBody(1);
+        const ev = koStep(this.koB, dt);
+        if (ev && ev.speed > .8) { dust(this.x, .4 + ev.speed * .06, 6); sfx.thud(); game.shake(.06 + ev.speed * .02); }
+        ko = this.koB.angle; p = mkPose({ aFs:2.2, aFe:.4, aBs:2.6, aBe:.3, lFh:.3, lFk:.2, lBh:-.1, lBk:.1, head:-.2 }); mouth = 1; k = 30;
+        break;
+      }
+      case 'down': { // knocked down: lie flat, then get up, or roll (27)
+        const w = wakeup(this.stateT, this.rollDir);
+        ko = w.phase === 'down' ? Math.PI / 2 : w.phase === 'getup' ? Math.PI / 2 * (1 - w.k) : 0;
+        if (w.phase === 'roll') flip = -w.k * Math.PI * 2 * Math.sign(this.rollDir * this.facing);
+        p = w.phase === 'roll' ? mkPose({ lFh:1.6, lFk:2, lBh:1.4, lBk:2, aFs:2, aBs:2, aFe:2, aBe:2, py:.3 }) : mkPose({ aFs:1.2, aBs:.8, lFk:.4, lBk:.3 });
+        mouth = .6; k = 30;
+        break;
+      }
+      case 'victory': p = (VICTORY[id] ?? VICTORY.luxon)[this.vIdx % 2](t); mouth = .9; break;
+      case 'lose': p = loserPose(t); break;
+      case 'taunt': p = tauntPose(this.stateT); mouth = .9; break;
+      case 'throw': p = throwPose(this.stateT); mouth = .9; k = 30; break;
+      case 'intro': p = INTROS[id] ? INTROS[id].pose(this.stateT) : idlePose(id, t); break;
+      case 'attack': { // anticipation, strike, follow-through (22) with a motion trail (35)
+        const a = this.atk; p = attackPose(a.type, a.t, a.d); mouth = .8; k = 40;
+        if (this.y > .05) { p.lBh = .7; p.lBk = 1.2; if (a.type === 'punch') { p.lFh = 1; p.lFk = 1.3; } }
+        if (!a.trail && a.t >= a.d.s) { a.trail = true; trail(this, a.type === 'kick' ? this.legF : this.armF, a.type === 'kick' ? .3 : .4, a.type === 'kick' ? 1.8 : 1.7); }
         break;
       }
       case 'special': {
-        const sp = this.sp; mouth = 1; const w = sp.t < .2;
+        const sp = this.sp, w = sp.t < .2;
+        let aF = Math.PI / 2 + .4, aB = .3, lF = GUARD.lFh, lB = GUARD.lBh, lean = -.1, py = GUARD.py, aFe = .35, aBe = .5;
         switch (sp.kind) {
-          case 'projectile': case 'bigwave': aF = w ? 2.7 : Math.PI / 2; aB = w ? .2 : 1; lean = w ? .2 : -.25; break;
+          case 'projectile': case 'bigwave': aF = w ? 2.7 : Math.PI / 2; aB = w ? .2 : 1; lean = w ? .2 : -.25; aFe = w ? 1.2 : .05; break;
           case 'dash': aF = 1.6; aB = 1.6; lF = sp.bike ? Math.sin(t * 30) * .6 + .6 : .4; lB = sp.bike ? -Math.sin(t * 30) * .6 + .6 : -.4; lean = -.2; break;
           case 'divekick': aF = Math.PI / 2; aB = Math.PI / 2; lF = sp.dived ? 1.3 : .4; lB = .2; lean = sp.dived ? .5 : -.1; break;
-          case 'blast': aF = w ? 2.2 : Math.PI / 2; aB = w ? 2 : Math.PI / 2; lean = w ? .15 : -.3; break;
-          case 'slam': aF = sp.t < .3 ? 3.1 : .8; aB = .3; lean = sp.t < .3 ? .25 : -.4; py = sp.t < .3 ? .1 : -.1; break;
-          case 'pull': aF = Math.PI / 2; aB = sp.caught ? 1.8 : .8; lean = sp.caught ? .25 : -.15; break;
+          case 'blast': aF = w ? 2.2 : Math.PI / 2; aB = w ? 2 : Math.PI / 2; lean = w ? .15 : -.3; aFe = w ? 1.6 : .05; aBe = w ? 1.6 : .1; break;
+          case 'slam': aF = sp.t < .3 ? 3.1 : .8; aB = .3; lean = sp.t < .3 ? .25 : -.4; py = sp.t < .3 ? .1 : -.1; aFe = sp.t < .3 ? .8 : .1; break;
+          case 'pull': aF = Math.PI / 2; aB = sp.caught ? 1.8 : .8; lean = sp.caught ? .25 : -.15; aFe = sp.caught ? 1.6 : .05; break;
           case 'teleport': aF = .2; aB = .2; lean = -.1; break;
           case 'rush': { const ph = Math.sin(t * 22); lF = ph * .8; lB = -ph * .8; aF = 1.5; aB = -.8; lean = -.45; break; }
-          case 'heal': aF = Math.PI; aB = Math.PI; py = .15; break;
-          default: aF = Math.PI / 2 + .4; aB = .3; lean = -.1;
+          case 'heal': aF = Math.PI; aB = Math.PI; py = .15; aFe = .2; aBe = .2; break;
         }
+        p = mkPose({ aFs:aF, aFe, aBs:aB, aBe, lFh:lF, lBh:lB, lean, py }); mouth = 1; k = 30;
         break;
       }
+      default: p = { ...GUARD };
     }
     if (mouth < .5 && Math.sin(t * 1.7) > .97) mouth = .6;
-    const k = 24;
-    this.armF.rotation.z = damp(this.armF.rotation.z, aF, k, dt);
-    this.armB.rotation.z = damp(this.armB.rotation.z, aB, k, dt);
-    this.legF.rotation.z = damp(this.legF.rotation.z, lF, k, dt);
-    this.legB.rotation.z = damp(this.legB.rotation.z, lB, k, dt);
-    const st = s === 'attack' && this.atk.type === 'kick' ? this.legF : this.armF;
-    st.scale.y = damp(st.scale.y, stretch, 30, dt);
-    (st === this.legF ? this.armF : this.legF).scale.y = damp((st === this.legF ? this.armF : this.legF).scale.y, 1, 30, dt);
-    this.pose.rotation.z = damp(this.pose.rotation.z, ko ? 1.5 : lean, ko ? 6 : 16, dt);
-    this.pose.position.y = damp(this.pose.position.y, ko ? .38 : py, 12, dt);
-    this.head.rotation.z = damp(this.head.rotation.z, head, 14, dt);
+
+    // ease every joint toward the target pose, then drive the rig
+    const cp = this.cp, prevA = cp.aFs, prevL = cp.lFh;
+    for (const j of JOINTS) cp[j] = damp(cp[j], p[j], k, dt);
+    this.armF.rotation.z = cp.aFs; this.armB.rotation.z = cp.aBs;
+    this.legF.rotation.z = cp.lFh; this.legB.rotation.z = cp.lBh;
+    if (this.armF.elbow) {
+      this.armF.elbow.rotation.z = cp.aFe; this.armB.elbow.rotation.z = cp.aBe;
+      this.legF.elbow.rotation.z = -cp.lFk; this.legB.elbow.rotation.z = -cp.lBk;
+      // keep the shoes level with the ground; the toe flexes on push-off (11)
+      const flat = this.y <= .05 ? 1 : .5;
+      this.legF.foot.rotation.z = -(cp.lFh - cp.lFk) * flat + Math.max(0, -cp.lFh) * .5;
+      this.legB.foot.rotation.z = -(cp.lBh - cp.lBk) * flat + Math.max(0, -cp.lBh) * .5;
+    }
+    // smears: a fast-moving limb stretches (35)
+    const atkLeg = s === 'attack' && this.atk.type === 'kick', w = ((atkLeg ? cp.lFh - prevL : cp.aFs - prevA) / Math.max(dt, 1e-3));
+    const st = atkLeg ? this.legF : this.armF, other = atkLeg ? this.armF : this.legF;
+    st.scale.y = damp(st.scale.y, s === 'attack' ? smearStretch(w) : 1, 30, dt);
+    other.scale.y = damp(other.scale.y, 1, 30, dt);
+    this.pose.rotation.z = cp.lean + ko;
+    this.pose.rotation.y = cp.twist * .6;
+    this.pose.position.y = -FLIP_Y + cp.py + .38 * ko / (Math.PI / 2);
+    this.flipG.rotation.z = -flip;
+    this.head.rotation.z = -cp.head;
+    // secondary motion: hair and tie lag behind the body (36)
+    if (this.hairPivot) this.hairPivot.rotation.z = this.hairSpring.step(clamp(-this.vx * .02 + this.vy * .012, -.25, .25), dt);
+    if (this.tiePivot) this.tiePivot.rotation.z = this.tieSpring.step(clamp(-this.vx * .05 - cp.lean * .8 + this.vy * .02, -.7, .7), dt);
     this.mouth.scale.y = damp(this.mouth.scale.y, .5 + mouth * 2.4, 20, dt);
     if (this.faces) {
-      const tx = this.faces[['hit', 'stunned', 'ko', 'hole'].includes(s) ? 'hurt' : mouth > .7 ? 'open' : 'n'];
+      const tx = this.faces[['hit', 'stunned', 'ko', 'hole', 'thrown', 'down'].includes(s) ? 'hurt' : mouth > .7 ? 'open' : 'n'];
       if (this.faceMat.map !== tx) this.faceMat.map = tx;
     }
     this.stars.visible = s === 'stunned'; this.stars.rotation.y += dt * 6;
     if (this.crown.visible) this.crown.rotation.y += dt * 1.5;
     this.yaw.scale.x = this.facing;
-    this.yaw.rotation.y = -.55 * this.facing + this.spin;
+    // turning round swings through 180 degrees instead of snapping (39)
+    this.yaw.rotation.y = -.55 * this.facing + this.spin + (this.turnT < TURN_TIME ? Math.PI - turnAngle(this.turnT) : 0);
     const fl = this.flash > 0 ? .8 : 0;
     for (const m of this.mats) m.emissive.setScalar(fl);
     this.squash = damp(this.squash, 0, 9, dt);

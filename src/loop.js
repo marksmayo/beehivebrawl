@@ -7,6 +7,7 @@ import { game, nextRoundOrResult, timeUp, toTitle } from './game.js';
 import { EMPTY, ctrlFor, padBuf, pollPads, pressed } from './input.js';
 import { camera, renderer, scene } from './renderer.js';
 import { touchFrame, updateTouchUI } from './touchui.js';
+import { shakeOffset } from './anim.js';
 import { $, BOUND, MAXSEP, clamp, damp, pick, rand } from './util.js';
 
 // Camera / HUD / main loop
@@ -24,9 +25,11 @@ function updateCamera(dt) {
   const k = game.cine ? 10 : 4;
   camPos.set(damp(camPos.x, tx, k, dt), damp(camPos.y, ty, k, dt), damp(camPos.z, tz, k, dt));
   camLook.set(damp(camLook.x, lx, k, dt), damp(camLook.y, ly, k, dt), 0);
-  game.shakeT = Math.max(0, game.shakeT - dt);
-  const sh = game.shakeT * .7;
-  camera.position.set(camPos.x + rand(-sh, sh), camPos.y + rand(-sh, sh), camPos.z);
+  game.shakeT = Math.max(0, game.shakeT - dt); game.shakeAge += dt;
+  const so = shakeOffset(game.shakeAge, game.shakeDir, game.shakeMag * 1.4); // shake along the hit (92)
+  game.zoom = damp(game.zoom, 0, 7, dt);
+  const zf = 1 - game.zoom * 2.5; // punch-in: pull toward what we look at (37)
+  camera.position.set(camLook.x + (camPos.x - camLook.x) * zf + so.x, camLook.y + (camPos.y - camLook.y) * zf + so.y, camLook.z + (camPos.z - camLook.z) * zf);
   camera.lookAt(camLook);
 }
 const hudEls = [0, 1].map(i => ({ fill:$(`#hp${i} .fill`), lag:$(`#hp${i} .lag`), pips:[...document.querySelectorAll(`#hp${i} .pip`)], meter:$(`#m${i} .mbar i`), mbox:$(`#m${i}`), mlabel:$(`#m${i} .mlabel`) }));
@@ -111,7 +114,7 @@ function tick(dt) {
     }
     if (game.introStep === 1 && game.phaseT > 1.1) { game.introStep = 2; bubble(b, pick(b.def.intro), { dur:1.4 }); }
     if (game.introStep === 2 && game.phaseT > 1.75) { game.introStep = 3; banner('FIGHT!', '', 700); say('Fight!', { pitch:.6 }); sfx.bell(); }
-    if (game.phaseT > 2.2) game.phase = 'fight';
+    if (game.phaseT > 2.2) { game.phase = 'fight'; for (const f of game.p) if (f.state === 'intro') { f.state = 'idle'; f.x = f.introX; } }
   } else if (game.phase === 'fight') {
     game.timer -= sdt;
     if (game.timer <= 0) { game.timer = 0; timeUp(); }
@@ -120,7 +123,7 @@ function tick(dt) {
     if (!game.victoryShown && game.phaseT > 1.8) {
       game.victoryShown = true;
       const w = game.roundWinner;
-      if (w) { w.state = 'victory'; w.stateT = 0; const q = pick(w.def.quips); bubble(w, q, { dur:2 }); say(q, { pitch:w.def.pitch }); }
+      if (w) { w.state = 'victory'; w.stateT = 0; w.vIdx = (Math.random() * 2) | 0; const q = pick(w.def.quips); bubble(w, q, { dur:2 }); say(q, { pitch:w.def.pitch }); }
     }
     if (game.phaseT > 4.4) nextRoundOrResult();
   }

@@ -2,13 +2,16 @@ import { say, sfx } from './audio.js';
 import { banner, bubble, floater, screenFlash, sfxWord } from './dom.js';
 import { impactStar, sparks } from './effects.js';
 import { game } from './game.js';
+import { blocks, hitHeight, impactFeel } from './anim.js';
 
 // Combat resolution
 
 function applyHit(att, tgt, o) {
-  if (tgt.state === 'ko' || !(game.phase === 'fight' || game.phase === 'title')) return 'miss';
+  if (['ko', 'down'].includes(tgt.state) || !(game.phase === 'fight' || game.phase === 'title')) return 'miss';
   const dir = Math.sign(tgt.x - att.x) || att.facing;
-  const blocking = !o.unblockable && tgt.state === 'block' && tgt.y <= 0 && tgt.facing === -dir;
+  // a guard only stops what it covers: high guard takes high + mid, low guard low + mid (40)
+  const height = o.height ?? (o.kind === 'throw' ? 'throw' : 'mid');
+  const blocking = !o.unblockable && tgt.state === 'block' && tgt.y <= 0 && tgt.facing === -dir && blocks(tgt.guard, height);
   let dmg = o.dmg * att.def.stats.power / tgt.def.stats.defense;
   const hx = tgt.x - dir * .35, hy = tgt.y + (o.hy ?? 1.8);
   if (blocking) {
@@ -22,6 +25,8 @@ function applyHit(att, tgt, o) {
     if (tgt.state === 'special' || tgt.state === 'attack') tgt.cleanupSpecial();
     tgt.state = o.stunned ? 'stunned' : 'hit'; tgt.stateT = 0; tgt.stunDur = o.stun ?? .35; tgt.atk = null; tgt.sp = null;
     tgt.vx = dir * (o.knock ?? 3);
+    tgt.hitH = hitHeight(o.hy ?? 1.8); tgt.hitDir = tgt.facing === -dir ? 1 : -1; tgt.guard = null; // reaction by height and side (25)
+    if (o.launch) tgt.launched = true; // lands in a knockdown (27)
     if (o.launch) tgt.vy = o.launch; else if (tgt.y > 0) tgt.vy = Math.max(tgt.vy, 3);
     tgt.flash = .08; tgt.squash = o.heavy ? -.18 : -.1;
     sparks(hx, hy, o.heavy ? 0xffd23f : 0xffffff, o.heavy ? 16 : 9, o.heavy ? 8 : 6);
@@ -30,8 +35,9 @@ function applyHit(att, tgt, o) {
       if (o.word) floater(o.word, hx, hy + .4, { cls:'sfx', size:34, life:.6, rise:.5 }).pop = true;
       else if (o.heavy || Math.random() < .45) sfxWord(hx, hy, o.heavy);
     }
-    sfx.hit(o.heavy); game.hitstop(o.super ? .14 : o.heavy ? .085 : .045);
-    if (o.heavy) game.shake(o.super ? .45 : .22);
+    // hit-stop, camera punch-in and a shake along the hit, all scaled by the blow (37, 92)
+    const feel = impactFeel(o.super ? 'super' : o.kind ?? (o.heavy ? 'kick' : 'punch'));
+    sfx.hit(o.heavy); game.hitstop(feel.stop); game.punchIn(feel.zoom); game.shake(feel.shake, dir);
     if (o.super) screenFlash();
     att.meter = Math.min(100, att.meter + (o.meter ?? 9)); tgt.meter = Math.min(100, tgt.meter + 5);
     if (!o.quiet && Math.random() < .14) { bubble(tgt, tgt.def.hurt, { dur:1.1 }); }

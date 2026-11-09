@@ -1,6 +1,7 @@
 import { AI } from './ai.js';
 import { STAGES, buildStage, stage } from './arenas.js';
 import { isTouch } from './touchui.js';
+import { INTROS } from './anim.js';
 import { audioInit, muted, say, setMuted, setVoicesOn, sfx, voicesOn } from './audio.js';
 import { banner, bubble, clearFloaters, floater, hideBanner, screenFlash } from './dom.js';
 import { clearFx } from './effects.js';
@@ -18,7 +19,10 @@ const game = {
   sel:[0, 1], conf:[false, false], stageIdx:(Math.random() * 8) | 0, round:1, timer:60, phaseT:0, freezeT:0, timeScale:1, shakeT:0, demo:true,
   wind:0, windT:5, windDir:0, cine:null, introStep:0, victoryShown:false, roundWinner:null, paused:false,
   hitstop(t) { this.freezeT = Math.max(this.freezeT, t); },
-  shake(t) { this.shakeT = Math.max(this.shakeT, t); },
+  // directional shake (along the hit) and a quick camera punch-in on impact (37, 92)
+  shakeMag:0, shakeAge:9, shakeDir:0, zoom:0,
+  shake(t, dir = 0) { if (t >= this.shakeMag * Math.exp(-this.shakeAge * 9)) { this.shakeMag = t; this.shakeAge = 0; this.shakeDir = dir || (Math.random() < .5 ? -1 : 1); } this.shakeT = Math.max(this.shakeT, t); },
+  punchIn(z) { this.zoom = Math.max(this.zoom, z); },
   superFlash(f, mv) {
     this.cine = { f, t:.85 };
     const sp = $('#superPanel');
@@ -175,15 +179,22 @@ function startRound() {
   const [a, b] = game.p;
   clearFx(); clearFloaters();
   a.resetRound(-3); b.resetRound(3);
+  for (const f of [a, b]) enterStage(f); // per-character round intros (33)
   game.phase = 'intro'; game.phaseT = 0; game.introStep = 0; game.timer = 60; game.timeScale = 1; game.wind = 0; game.windT = rand(4, 8);
   showScreen(null);
+}
+function enterStage(f) {
+  const it = INTROS[f.def.id], side = f.x < 0 ? -1 : 1;
+  Object.assign(f, { state:'intro', stateT:0, introX:f.x });
+  if (it?.entry === 'drop') { f.y = 7; f.vy = 0; }
+  else f.x += side * (it?.entry === 'slide' ? 5 : 3.5);
 }
 function timeUp() {
   const [a, b] = game.p;
   game.phase = 'ko'; game.phaseT = 0; game.victoryShown = false;
   let w = null; if (Math.abs(a.hp - b.hp) > .01) w = a.hp > b.hp ? a : b;
   game.roundWinner = w;
-  if (w) { w.wins++; banner('TIME!', `${w.def.short} wins on the count`, 2400); }
+  if (w) { w.wins++; banner('TIME!', `${w.def.short} wins on the count`, 2400); const l = w === a ? b : a; l.state = 'lose'; l.stateT = 0; }
   else { a.wins++; b.wins++; banner('TIME!', 'HUNG PARLIAMENT', 2400); }
   sfx.bell(); say('Time!', { pitch:.6 });
 }

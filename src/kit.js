@@ -21,14 +21,15 @@ function outline(m, t = .035) {
   m.add(o); return m;
 }
 const inkMats = {};
-function ink(m, t) {
-  const mat = inkMats[t] ??= (() => {
+// black back-face hull pushed out along the normals (shared per thickness; works on skinned meshes too)
+function inkMaterial(t) {
+  return inkMats[t] ??= (() => {
     const k = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide });
     k.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed += normalize(normal) * ${t.toFixed(4)};`); };
     k.customProgramCacheKey = () => 'ink' + t; return k;
   })();
-  m.add(new THREE.Mesh(m.geometry, mat)); return m;
 }
+function ink(m, t) { m.add(new THREE.Mesh(m.geometry, inkMaterial(t))); return m; }
 function disposeObj(o) {
   o.traverse(n => {
     if (!n.isMesh && !n.isPoints) return;
@@ -139,4 +140,4 @@ function smokeStack(p, x, y, z, { scale = 1, color = 0xeeeeee, rate = .35, rise 
   };
 }
 
-export { gradTex, toon, OL, _s, _c, outline, inkMats, ink, disposeObj, place, BOX, CYL, SPH, CONE, PRISM, ground, water, mountain, tree, textTex, sign, skyTex, flagTex, wavingFlag, smokeStack };
+export { gradTex, toon, OL, _s, _c, outline, inkMats, inkMaterial, ink, disposeObj, place, BOX, CYL, SPH, CONE, PRISM, ground, water, mountain, tree, textTex, sign, skyTex, flagTex, wavingFlag, smokeStack };

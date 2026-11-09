@@ -1,6 +1,7 @@
 import { effects } from './effects.js';
 import { EMPTY } from './input.js';
 import { rand } from './util.js';
+import { guardFor } from './anim.js';
 
 // AI
 
@@ -18,7 +19,8 @@ class AI {
     if (threat && Math.random() < L) return Math.random() < .5 && !effects.some(e => e.big) ? (c.up = 1, c[to] = 1, c) : hold({ down:1 }, .45);
     const mk = effects.find(e => e.marker && Math.abs(e.x - f.x) < 2);
     if (mk && Math.random() < L) return hold({ [f.x > mk.x ? 'right' : 'left']:1 }, .4);
-    if ((o.state === 'attack' || o.state === 'special') && dist < 3 && Math.random() < L * .7) return hold({ down:1 }, .35);
+    // guard the right way: high (hold back) against punches, low (down) against kicks (40)
+    if ((o.state === 'attack' || o.state === 'special') && dist < 3 && Math.random() < L * .7) return hold(guardFor(o.atk?.type ?? 'special') === 'low' ? { down:1 } : { [away]:1 }, .35);
     if (f.meter >= 100 && Math.random() < .5) { c.sup = 1; return c; }
     const kA = f.def.moves.a.kind, kB = f.def.moves.b.kind, ranged = k => k === 'projectile', mid = k => ['dash', 'blast', 'slam', 'pull', 'teleport', 'divekick'].includes(k);
     if (dist > 4.5) {

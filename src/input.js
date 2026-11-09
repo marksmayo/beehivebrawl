@@ -1,4 +1,5 @@
 import { audioInit } from './audio.js';
+import { HELD, readControls } from './controls.js';
 import { touchPad, touchPresses } from './touchui.js';
 import { game, menuKey, rematch, selBack, selConfirm, selNav, toSelect, togglePause } from './game.js';
 
@@ -6,22 +7,20 @@ import { game, menuKey, rematch, selBack, selConfirm, selNav, toSelect, togglePa
 
 const keys = new Set(), pressed = new Set();
 const BIND_2P = [
-  { left:['KeyA'], right:['KeyD'], up:['KeyW'], down:['KeyS'], punch:['KeyF'], kick:['KeyG'], spA:['KeyH'], spB:['KeyR'], sup:['KeyT'] },
-  { left:['ArrowLeft'], right:['ArrowRight'], up:['ArrowUp'], down:['ArrowDown'], punch:['Numpad1', 'Comma'], kick:['Numpad2', 'Period'], spA:['Numpad3', 'Slash'], spB:['Numpad4', 'Semicolon'], sup:['Numpad5', 'Quote'] },
+  { left:['KeyA'], right:['KeyD'], up:['KeyW'], down:['KeyS'], punch:['KeyF'], kick:['KeyG'], spA:['KeyH'], spB:['KeyR'], sup:['KeyT'], taunt:['KeyY'] },
+  { left:['ArrowLeft'], right:['ArrowRight'], up:['ArrowUp'], down:['ArrowDown'], punch:['Numpad1', 'Comma'], kick:['Numpad2', 'Period'], spA:['Numpad3', 'Slash'], spB:['Numpad4', 'Semicolon'], sup:['Numpad5', 'Quote'], taunt:['Numpad6', 'BracketRight'] },
 ];
 const BIND_1P = {
   left:['KeyA', 'ArrowLeft'], right:['KeyD', 'ArrowRight'], up:['KeyW', 'ArrowUp', 'Space'], down:['KeyS', 'ArrowDown'],
   punch:['KeyJ', 'KeyF', 'Numpad1', 'Comma'], kick:['KeyK', 'KeyG', 'Numpad2', 'Period'], spA:['KeyL', 'KeyH', 'Numpad3', 'Slash'],
-  spB:['KeyI', 'KeyR', 'Numpad4', 'Semicolon'], sup:['KeyO', 'KeyT', 'Numpad5', 'Quote'],
+  spB:['KeyI', 'KeyR', 'Numpad4', 'Semicolon'], sup:['KeyO', 'KeyT', 'Numpad5', 'Quote'], taunt:['KeyU', 'KeyY', 'Numpad6'],
 };
-const EMPTY = { left:0, right:0, up:0, down:0, punch:0, kick:0, spA:0, spB:0, sup:0 };
-const HELD = ['left', 'right', 'up', 'down'];
+const EMPTY = { left:0, right:0, up:0, down:0, punch:0, kick:0, spA:0, spB:0, sup:0, taunt:0 };
 const padState = [null, null], padPrev = [[], []], padBuf = [{}, {}], padAx = [{ x:0, y:0 }, { x:0, y:0 }];
 function ctrlFor(i) {
-  const b = game.mode === 'cpu' ? BIND_1P : BIND_2P[i], c = {};
-  for (const k in b) c[k] = HELD.includes(k) ? b[k].some(x => keys.has(x)) : b[k].some(x => pressed.has(x));
+  const c = readControls(game.mode === 'cpu' ? BIND_1P : BIND_2P[i], keys, pressed);
   const pi = game.mode === 'cpu' ? 0 : i, p = padState[pi];
-  if (p) { for (const k of HELD) c[k] = c[k] || p[k]; for (const k of ['punch', 'kick', 'spA', 'spB', 'sup']) c[k] = c[k] || padBuf[pi][k]; }
+  if (p) { for (const k of HELD) c[k] = c[k] || p[k]; for (const k of ['punch', 'kick', 'spA', 'spB', 'sup', 'taunt']) c[k] = c[k] || padBuf[pi][k]; }
   if (i === 0) { // on-screen touch controls drive player 1
     const t = touchPad.held(), tp = touchPresses();
     for (const k of HELD) c[k] = c[k] || t[k];
@@ -46,7 +45,7 @@ function pollPads() {
     const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
     padState[i] = { left:b(14) || ax < -.5, right:b(15) || ax > .5, up:b(12) || ay < -.6, down:b(13) || ay > .6 };
     const buf = padBuf[i];
-    if (jp(2)) buf.punch = 1; if (jp(0)) buf.kick = 1; if (jp(1)) buf.spA = 1; if (jp(3)) buf.spB = 1; if (jp(5) || jp(7) || jp(4)) buf.sup = 1;
+    if (jp(2)) buf.punch = 1; if (jp(0)) buf.kick = 1; if (jp(1)) buf.spA = 1; if (jp(3)) buf.spB = 1; if (jp(5) || jp(7) || jp(4)) buf.sup = 1; if (jp(8)) buf.taunt = 1;
     const dx = padState[i].left ? -1 : padState[i].right ? 1 : 0, dy = padState[i].up ? -1 : padState[i].down ? 1 : 0;
     if (game.phase === 'select') {
       const sp = game.mode === 'cpu' ? 0 : i;
