@@ -2,7 +2,9 @@
 
 A satirical 3D comic-book fighting game starring New Zealand politicians. No build step: Three.js loads from a CDN.
 
-**Play:** open `index.html` in a browser (it needs an internet connection for Three.js and the fonts), or serve the folder, for example with `python -m http.server`.
+**Play online:** https://beehivebrawl.vercel.app
+
+**Play locally:** open `index.html` in a browser (it needs an internet connection for Three.js and the fonts), or serve the folder, for example with `python -m http.server`.
 
 - 8 fighters, each with a special A, a special B, a super, and their own catchphrases
 - 8 painted arenas: the Beehive, the Viaduct, Cathedral Square, the Octagon, the Queenstown waterfront, Waitangi, Lake Taupō, and the summit of Mauao
