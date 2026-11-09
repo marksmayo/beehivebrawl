@@ -2,6 +2,7 @@ import { say, sfx } from './audio.js';
 import { banner, bubble, floater, screenFlash, sfxWord } from './dom.js';
 import { impactStar, sparks } from './effects.js';
 import { game } from './game.js';
+import { stageFx } from './arenas.js';
 import { blocks, hitHeight, impactFeel } from './anim.js';
 import { debris, impactFrame, splat, word3d } from './comicfx.js';
 
@@ -37,6 +38,7 @@ function applyHit(att, tgt, o) {
       if (o.word) floater(o.word, hx, hy + .4, { cls:'sfx', size:34, life:.6, rise:.5 }).pop = true;
       else word3d(hx, hy, kind, o.heavy); // hand-lettered sound effect in the scene (42)
       debris(hx, hy, kind, dir); // paperwork flies on heavy hits (45)
+      stageFx?.react(kind); // the crowd and the press pack react (58, 79)
       if (o.super || o.kind === 'throw') impactFrame(o.super ? 'super' : 'throw'); // impact frame (41)
     }
     // hit-stop, camera punch-in and a shake along the hit, all scaled by the blow (37, 92)

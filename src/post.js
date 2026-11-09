@@ -4,14 +4,15 @@ import * as THREE from 'three';
 
 function makePrintMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms:{ tDiffuse:{ value:null }, uOffset:{ value:.0011 }, uGrain:{ value:.055 }, uTime:{ value:0 }, uSaturation:{ value:1 } },
+    uniforms:{ tDiffuse:{ value:null }, uOffset:{ value:.0011 }, uGrain:{ value:.055 }, uTime:{ value:0 }, uSaturation:{ value:1 }, uHaze:{ value:0 } },
     vertexShader:/* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
     fragmentShader:/* glsl */`
-      uniform sampler2D tDiffuse; uniform float uOffset, uGrain, uTime, uSaturation; varying vec2 vUv;
+      uniform sampler2D tDiffuse; uniform float uOffset, uGrain, uTime, uSaturation, uHaze; varying vec2 vUv;
       void main() {
-        vec4 c = texture2D(tDiffuse, vUv);
-        float r = texture2D(tDiffuse, vUv + vec2(uOffset, uOffset * .4)).r; // misregistered plates
-        float b = texture2D(tDiffuse, vUv + vec2(-uOffset * .6, -uOffset)).b;
+        vec2 uv = vUv + vec2(sin(vUv.y * 90. + uTime * .9) * .0016 * uHaze * smoothstep(.35, .75, vUv.y), 0.); // heat haze shimmer
+        vec4 c = texture2D(tDiffuse, uv);
+        float r = texture2D(tDiffuse, vUv + vec2(uOffset, uOffset * .4) + (uv - vUv)).r; // misregistered plates
+        float b = texture2D(tDiffuse, vUv + vec2(-uOffset * .6, -uOffset) + (uv - vUv)).b;
         vec3 col = vec3(r, c.g, b);
         col = mix(vec3(dot(col, vec3(.299, .587, .114))), col, uSaturation);
         float n = fract(sin(dot(floor(gl_FragCoord.xy * .5) + uTime, vec2(12.9898, 78.233))) * 43758.5453);

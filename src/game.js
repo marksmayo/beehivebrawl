@@ -1,5 +1,6 @@
 import { AI } from './ai.js';
-import { STAGES, arenaArt, buildStage, stage } from './arenas.js';
+import { STAGES, arenaArt, buildStage, stage, stageFx } from './arenas.js';
+import { TIMES } from './arenadata.js';
 import { isTouch } from './touchui.js';
 import { INTROS } from './anim.js';
 import { ReplayBuffer } from './camerafx.js';
@@ -19,7 +20,7 @@ import { $, hex, pick, rand } from './util.js';
 
 const game = {
   phase:'title', mode:'cpu', diff:1, p:[null, null], ai:null, aiA:null, aiB:null,
-  sel:[0, 1], conf:[false, false], stageIdx:(Math.random() * 8) | 0, round:1, timer:60, phaseT:0, freezeT:0, timeScale:1, shakeT:0, demo:true,
+  sel:[0, 1], conf:[false, false], stageIdx:(Math.random() * 13) | 0, round:1, timer:60, phaseT:0, freezeT:0, timeScale:1, shakeT:0, demo:true,
   replay:new ReplayBuffer(2.2, 30), final:false, slowT:0, camRoll:0,
   wind:0, windT:5, windDir:0, cine:null, introStep:0, victoryShown:false, roundWinner:null, paused:false,
   hitstop(t) { this.freezeT = Math.max(this.freezeT, t); },
@@ -43,7 +44,7 @@ const game = {
     loser.cleanupSpecial(); loser.state = 'ko'; loser.stateT = 0; loser.vy = 7; loser.vx = dir * 6; loser.atk = null; loser.sp = null;
     winner.wins++;
     this.final = winner.wins >= 2; this.slowT = 0; // the deciding KO gets slow-mo and a replay (93, 94)
-    banner('K.O.!', '', 1600); koStamp(pick(KO_SUBS)); impactFrame('ko'); // (41, 52)
+    banner('K.O.!', '', 1600); koStamp(pick(KO_SUBS)); impactFrame('ko'); stageFx?.react('ko'); // (41, 52, 58)
     sfx.ko(); screenFlash(); this.shake(.5);
     say('K.O.!', { pitch:.6, rate:.9 });
     bubble(loser, loser.def.hurt, { dur:2 });
@@ -67,7 +68,7 @@ function showScreen(id) {
 function toTitle() {
   game.phase = 'title'; game.demo = true; game.paused = false; game.cine = null; game.timeScale = 1;
   clearFx(); clearFloaters(); hideBanner();
-  buildStage(pick(STAGES));
+  buildStage(pick(STAGES), { tod:pick(TIMES) });
   const i = (Math.random() * ROSTER.length) | 0; let j = (Math.random() * ROSTER.length) | 0; if (j === i) j = (j + 1) % ROSTER.length;
   setFighters(ROSTER[i], ROSTER[j]);
   game.aiA = new AI(game.p[0], 1); game.aiB = new AI(game.p[1], 1);
@@ -171,7 +172,8 @@ function selBack() {
 
 function startMatch() {
   game.demo = false; clearFloaters();
-  buildStage(STAGES[game.stageIdx]);
+  game.tod = Math.random() < .5 ? 'day' : Math.random() < .6 ? 'sunset' : 'night'; // (59)
+  buildStage(STAGES[game.stageIdx], { tod:game.tod });
   setFighters(ROSTER[game.sel[0]], ROSTER[game.sel[1]]);
   if (game.mode === 'cpu') game.ai = new AI(game.p[1], game.diff);
   game.round = 1;
@@ -190,6 +192,7 @@ function startRound() {
   const [a, b] = game.p;
   clearFx(); clearFloaters();
   a.resetRound(-3); b.resetRound(3); resetPolls(); game.replay.clear(); game.final = false;
+  stageFx?.setRound(game.round); // a new billboard slogan (67)
   for (const f of [a, b]) enterStage(f); // per-character round intros (33)
   game.phase = 'intro'; game.phaseT = 0; game.introStep = 0; game.timer = 60; game.timeScale = 1; game.wind = 0; game.windT = rand(4, 8);
   showScreen(null);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { stage } from './arenas.js';
-import { noise, say, sfx } from './audio.js';
+import { stage, stageFx, tickStage } from './arenas.js';
+import { ambienceTick, noise, say, sfx } from './audio.js';
 import { banner, bubble, floater, updateFloaters } from './dom.js';
 import { updateFx } from './effects.js';
 import { game, nextRoundOrResult, timeUp, toTitle } from './game.js';
@@ -8,7 +8,7 @@ import { EMPTY, ctrlFor, padBuf, pollPads, pressed } from './input.js';
 import { camera, renderer, scene } from './renderer.js';
 import { touchFrame, updateTouchUI } from './touchui.js';
 import { shakeOffset } from './anim.js';
-import { cinePath, framing, koSlowmo, replayCamera, vignettePulse } from './camerafx.js';
+import { cinePath, flyThrough, framing, koSlowmo, replayCamera, vignettePulse } from './camerafx.js';
 import { updateCombos, updateImpact } from './comicfx.js';
 import { portraitMood, speedLinesOn } from './fxlogic.js';
 import { portraits } from './portraits.js';
@@ -34,6 +34,9 @@ function updateCamera(dt) {
   if (game.phase === 'result') { const w = a.wins > b.wins ? a : b.wins > a.wins ? b : null; if (w) { tx = w.x + 1.2; lx = w.x + 1.2; tz = 6.5; ty = 2.6; ly = 2.2; } }
   tx = clamp(tx, -7, 7); lx = clamp(lx, -7, 7);
   let lz = 0;
+  if (game.phase === 'intro' && game.phaseT < 1.15) { // stage fly-through into the fight framing (69)
+    const c = flyThrough(game.phaseT / 1.15); tx = fr.cx + c.x; ty = c.y; tz = c.z; k = game.phaseT < .05 ? 60 : 12;
+  }
   if (game.cine) { // super: cut to a side close-up and push in (31, 95)
     const c = cinePath(game.cine.T - game.cine.t, game.cine.T, game.cine.f);
     ({ x:tx, y:ty, z:tz } = c.pos); ({ x:lx, y:ly, z:lz } = c.look); roll = c.roll; k = c.cut ? 60 : 14;
@@ -105,6 +108,7 @@ function frame(now) {
   if (game.phase !== 'paused') tick(dt);
   updateCamera(dt); updateFloaters(dt); updateTouchUI(); updateImpact(dt); updateCombos(game.p);
   $('#speedlines').classList.toggle('on', speedLinesOn(game.p, game.cine)); // (43)
+  post.mat.uniforms.uHaze.value = stageFx?.haze ?? 0; ambienceTick(dt);
   if (post.enabled) post.render(scene, camera, clock); else renderer.render(scene, camera); // print pass (49)
 }
 function tick(dt) {
@@ -126,7 +130,7 @@ function tick(dt) {
     if (game.phase !== 'select') separate(a, b);
     else { a.x = -2.2; b.x = 2.2; if (a.state === 'victory' && !game.conf[0]) a.state = 'idle'; }
     updateFx(sdt);
-    stage?.tick?.(sdt, clock);
+    tickStage(sdt, clock);
     windTick(sdt);
     if (game.demo) { a.meter = b.meter = 0; }
     if (game.phase === 'fight' || (game.phase === 'ko' && game.phaseT < 1.4)) game.replay.push([a.snap(), b.snap()], clock);

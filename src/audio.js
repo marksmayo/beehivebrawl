@@ -56,4 +56,41 @@ function say(text, { pitch = 1, rate = 1.08, interrupt = true } = {}) {
 
 const setMuted = v => { muted = v; }, setVoicesOn = v => { voicesOn = v; };
 
-export { setMuted, setVoicesOn, ac, master, noiseBuf, muted, voicesOn, audioInit, silent, noise, tone, sfx, voice, pickVoice, say };
+// ---- arena ambience (70): looping beds of filtered noise plus occasional one-shots
+const BEDS = { wind:['bandpass', 450, .7, .05, .18], drizzle:['highpass', 3200, .7, .03, 0], water:['lowpass', 520, .7, .045, .12], traffic:['lowpass', 260, .7, .03, .05],
+  murmur:['bandpass', 700, 1.4, .03, .45], alpine:['bandpass', 1000, .4, .03, .08], cafe:['bandpass', 1600, .9, .012, .3] };
+const SHOTS = {
+  gulls:[4, 9, () => { tone(1800, 1100, .35, 'triangle', .03); setTimeout(() => tone(1700, 1000, .3, 'triangle', .025), 260); }],
+  tram:[12, 20, () => { tone(1320, 1320, 1.2, 'sine', .04); setTimeout(() => tone(1320, 1320, 1, 'sine', .035), 380); }],
+  sheep:[6, 12, () => tone(420, 300, .6, 'sawtooth', .025)],
+  birdsong:[2, 5, () => { for (let i = 0; i < 3; i++) setTimeout(() => tone(2400 + i * 300, 3000, .08, 'sine', .02), i * 110); }],
+  murmur:[6, 11, () => { tone(160, 120, .5, 'sawtooth', .02); setTimeout(() => tone(180, 140, .4, 'sawtooth', .02), 420); }], // "hear, hear!"
+  cafe:[3, 7, () => tone(2600, 2500, .12, 'triangle', .02)],
+  cicadas:[0, 0, null],
+};
+let ambience = [], ambNodes = [], ambT = {};
+function setAmbience(list) { ambience = [...list]; stopBeds(); ambT = {}; }
+function stopBeds() { for (const n of ambNodes) try { n.stop?.(); n.disconnect(); } catch {} ambNodes = []; }
+function startBeds() {
+  for (const k of ambience) {
+    if (k === 'cicadas') { // buzzing: a high tone, amplitude-modulated
+      const o = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), g = ac.createGain();
+      o.type = 'square'; o.frequency.value = 4400; lfo.frequency.value = 32; lg.gain.value = .006; g.gain.value = .006;
+      lfo.connect(lg).connect(g.gain); o.connect(g).connect(master); o.start(); lfo.start(); ambNodes.push(o, lfo, g); continue;
+    }
+    const b = BEDS[k]; if (!b) continue;
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const f = ac.createBiquadFilter(); f.type = b[0]; f.frequency.value = b[1]; f.Q.value = b[2];
+    const g = ac.createGain(); g.gain.value = b[3];
+    if (b[4]) { const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = b[4]; lg.gain.value = b[3] * .6; lfo.connect(lg).connect(g.gain); lfo.start(); ambNodes.push(lfo); }
+    s.connect(f).connect(g).connect(master); s.start(); ambNodes.push(s, g);
+  }
+}
+function ambienceTick(dt) {
+  if (silent() || !ambience.length) { if (ambNodes.length) stopBeds(); return; }
+  if (!ambNodes.length) startBeds();
+  for (const k of ambience) { const sh = SHOTS[k]; if (!sh?.[2]) continue; ambT[k] = (ambT[k] ?? sh[0] * Math.random()) - dt; if (ambT[k] <= 0) { ambT[k] = sh[0] + Math.random() * (sh[1] - sh[0]); sh[2](); } }
+}
+const currentAmbience = () => ambience;
+
+export { setAmbience, ambienceTick, currentAmbience, setMuted, setVoicesOn, ac, master, noiseBuf, muted, voicesOn, audioInit, silent, noise, tone, sfx, voice, pickVoice, say };

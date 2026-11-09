@@ -64,21 +64,21 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 55. [x] Portraits that swap expression in the HUD when hit or winning
 
 ## Arenas & backgrounds
-56. [ ] ★ Hand-painted (or AI-assisted, then retouched) high-res panorama per arena
-57. [ ] ★ Parallax layers: sky, far hills, buildings, near props, each at a different depth
-58. [ ] Animated background crowds (protesters, press pack, tourists) reacting to big hits
-59. [ ] Time-of-day variants per arena (dawn, noon, sunset, night with lit windows)
-60. [ ] Weather per arena: Wellington wind with flying umbrellas, Dunedin drizzle puddles, Taupō heat haze
-61. [ ] Painted floor decal centre-pieces (fern koru mosaic, Octagon star, Treaty grounds lawn markings)
-62. [ ] Breakable props: road cones, lecterns, café tables, flower boxes
-63. [ ] Interactive hazards: the Christchurch tram crossing, Viaduct bridge opening, Mauao sheep stampede
-64. [ ] Animated water with scrolling painted ripples and bobbing boats
-65. [ ] Drifting clouds and birds (kererū, gulls, tūī) on a separate layer
-66. [ ] Background characters doing cameos (former PMs in the crowd, a press gallery with cameras flashing)
-67. [ ] Signage and billboards with satirical slogans that change each round
-68. [ ] More NZ arenas: Parliament debating chamber, Hobbiton, Aoraki, Cuba Street, Ponsonby café strip, a select committee room
-69. [ ] A stage intro fly-through that ends on the fight camera
-70. [ ] Arena-specific ambient audio (gulls, trams, wind, cicadas)
+56. [x] ★ Hand-painted (or AI-assisted, then retouched) high-res panorama per arena
+57. [x] ★ Parallax layers: sky, far hills, buildings, near props, each at a different depth
+58. [x] Animated background crowds (protesters, press pack, tourists) reacting to big hits
+59. [x] Time-of-day variants per arena (dawn, noon, sunset, night with lit windows)
+60. [x] Weather per arena: Wellington wind with flying umbrellas, Dunedin drizzle puddles, Taupō heat haze
+61. [x] Painted floor decal centre-pieces (fern koru mosaic, Octagon star, Treaty grounds lawn markings)
+62. [x] Breakable props: road cones, lecterns, café tables, flower boxes
+63. [x] Interactive hazards: the Christchurch tram crossing, Viaduct bridge opening, Mauao sheep stampede
+64. [x] Animated water with scrolling painted ripples and bobbing boats
+65. [x] Drifting clouds and birds (kererū, gulls, tūī) on a separate layer
+66. [x] Background characters doing cameos (former PMs in the crowd, a press gallery with cameras flashing)
+67. [x] Signage and billboards with satirical slogans that change each round
+68. [x] More NZ arenas: Parliament debating chamber, Hobbiton, Aoraki, Cuba Street, Ponsonby café strip, a select committee room
+69. [x] A stage intro fly-through that ends on the fight camera
+70. [x] Arena-specific ambient audio (gulls, trams, wind, cicadas)
 
 ## Lighting & rendering
 71. [ ] Soft cel ramps with warm shadows and cool highlights (custom toon shader)
@@ -89,8 +89,8 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 76. [ ] Depth-of-field blur on the backdrop during cinematics
 77. [ ] Colour grading LUT per arena
 78. [ ] MSAA / FXAA tuned so outlines stay crisp on high-DPI screens
-79. [ ] Dynamic lighting flashes (camera flashes from the press pack)
-80. [ ] Higher-resolution backdrops on desktop, lower on mobile
+79. [x] Dynamic lighting flashes (camera flashes from the press pack)
+80. [x] Higher-resolution backdrops on desktop, lower on mobile
 
 ## UI & presentation
 81. [x] ★ Animated character-select with full-body idle previews and a "VS" splash screen

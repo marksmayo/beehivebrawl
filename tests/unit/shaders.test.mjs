@@ -37,3 +37,9 @@ test('the print pass offsets the colour plates and adds paper grain', () => {
   assert.ok(m.uniforms.uOffset.value > 0 && m.uniforms.uOffset.value < .004, 'subtle');
   assert.match(m.fragmentShader, /texture2D\(tDiffuse, vUv \+/, 'samples a shifted plate');
 });
+
+test('the print pass can shimmer with heat haze (60), off by default', () => {
+  const m = makePrintMaterial();
+  assert.ok('uHaze' in m.uniforms); assert.equal(m.uniforms.uHaze.value, 0);
+  assert.match(m.fragmentShader, /uHaze/);
+});

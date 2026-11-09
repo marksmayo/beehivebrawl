@@ -73,3 +73,11 @@ function canCancel({ hit, phase, t }, into) {
 }
 
 export { framing, koSlowmo, ReplayBuffer, replayCamera, cinePath, pulseRate, vignettePulse, InputBuffer, CANCEL_WINDOW, canCancel };
+
+// ---- 69: the round intro flies in from high and wide, landing on the fight framing
+const FLY_FROM = { x:-9, y:9, z:20 }, FLY_TO = { x:0, y:3.1, z:11.2 };
+function flyThrough(u) {
+  const k = smooth(clamp01(u)), arc = Math.sin(k * Math.PI) * 2.5;
+  return { x:FLY_FROM.x + (FLY_TO.x - FLY_FROM.x) * k + arc, y:FLY_FROM.y + (FLY_TO.y - FLY_FROM.y) * k, z:FLY_FROM.z + (FLY_TO.z - FLY_FROM.z) * k };
+}
+export { flyThrough };
