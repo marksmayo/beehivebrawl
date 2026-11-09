@@ -4,10 +4,11 @@ import * as THREE from 'three';
 
 function makePrintMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms:{ tDiffuse:{ value:null }, uOffset:{ value:.0011 }, uGrain:{ value:.055 }, uTime:{ value:0 }, uSaturation:{ value:1 }, uHaze:{ value:0 } },
+    uniforms:{ tDiffuse:{ value:null }, uOffset:{ value:.0011 }, uGrain:{ value:.055 }, uTime:{ value:0 }, uSaturation:{ value:1 }, uHaze:{ value:0 },
+      uLift:{ value:new THREE.Vector3(0, 0, 0) }, uGamma:{ value:new THREE.Vector3(1, 1, 1) }, uGain:{ value:new THREE.Vector3(1, 1, 1) } }, // colour grade (77)
     vertexShader:/* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
     fragmentShader:/* glsl */`
-      uniform sampler2D tDiffuse; uniform float uOffset, uGrain, uTime, uSaturation, uHaze; varying vec2 vUv;
+      uniform sampler2D tDiffuse; uniform float uOffset, uGrain, uTime, uSaturation, uHaze; uniform vec3 uLift, uGamma, uGain; varying vec2 vUv;
       void main() {
         vec2 uv = vUv + vec2(sin(vUv.y * 90. + uTime * .9) * .0016 * uHaze * smoothstep(.35, .75, vUv.y), 0.); // heat haze shimmer
         vec4 c = texture2D(tDiffuse, uv);
@@ -15,6 +16,7 @@ function makePrintMaterial() {
         float b = texture2D(tDiffuse, vUv + vec2(-uOffset * .6, -uOffset) + (uv - vUv)).b;
         vec3 col = vec3(r, c.g, b);
         col = mix(vec3(dot(col, vec3(.299, .587, .114))), col, uSaturation);
+        col = pow(max(col * uGain + uLift * (1. - col), 0.), 1. / uGamma); // lift / gamma / gain
         float n = fract(sin(dot(floor(gl_FragCoord.xy * .5) + uTime, vec2(12.9898, 78.233))) * 43758.5453);
         col *= 1. - uGrain * (n - .5);
         gl_FragColor = vec4(col, 1.);
@@ -34,6 +36,7 @@ class PrintPost {
     this.resize();
   }
   resize() { const v = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.rt.setSize(v.x, v.y); }
+  grade(g) { if (!g) return; const u = this.mat.uniforms; u.uLift.value.set(...g.lift); u.uGamma.value.set(...g.gamma); u.uGain.value.set(...g.gain); }
   render(scene, camera, t = 0) {
     const r = this.renderer;
     r.setRenderTarget(this.rt); r.render(scene, camera); r.setRenderTarget(null);

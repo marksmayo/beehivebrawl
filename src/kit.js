@@ -10,10 +10,18 @@ function toon(color, o = {}) {
     transparent:o.opacity != null, opacity:o.opacity ?? 1, side:o.side ?? THREE.FrontSide, depthWrite:o.opacity == null || o.opacity > .9 });
   return o.halftone === false ? m : halftone(m);
 }
+// one look shared by every toon material: warm shadows, cool highlights (71), tinted per arena (74)
+const LOOK = {
+  uShadowTint:{ value:new THREE.Color().setHex(0xffb08a, THREE.LinearSRGBColorSpace) },
+  uHighTint:{ value:new THREE.Color().setHex(0xe4eeff, THREE.LinearSRGBColorSpace) },
+};
+const setShadowTint = hex => LOOK.uShadowTint.value.setHex(hex, THREE.LinearSRGBColorSpace);
 // print-style halftone dots, in screen space, only where the lighting puts the surface in shadow (47)
 const HALFTONE = /* glsl */`
   { // halftone
     float htShade = dot(outgoingLight, vec3(.299, .587, .114)) / max(.002, dot(diffuseColor.rgb, vec3(.299, .587, .114)));
+    outgoingLight *= mix(uShadowTint, vec3(1.), smoothstep(.3, .85, htShade)); // warm shadows
+    outgoingLight = mix(outgoingLight, outgoingLight * uHighTint, smoothstep(.9, 1.2, htShade) * .6); // cool highlights
     vec2 htP = mat2(.707, -.707, .707, .707) * gl_FragCoord.xy / uDot;
     float htD = length(fract(htP) - .5), htR = clamp((.66 - htShade) * 1.1, 0., .48);
     outgoingLight *= 1. - .38 * (1. - smoothstep(htR - .07, htR, htD)) * step(htShade, .66);
@@ -21,10 +29,49 @@ const HALFTONE = /* glsl */`
   #include <opaque_fragment>`;
 function halftone(m) {
   m.onBeforeCompile = sh => {
-    sh.uniforms.uDot = { value:4.5 * (globalThis.devicePixelRatio ?? 1) };
-    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform float uDot;\nvoid main() {').replace('#include <opaque_fragment>', HALFTONE);
+    sh.uniforms.uDot = { value:4.5 * (globalThis.devicePixelRatio ?? 1) }; sh.uniforms.uShadowTint = LOOK.uShadowTint; sh.uniforms.uHighTint = LOOK.uHighTint;
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform float uDot;\nuniform vec3 uShadowTint, uHighTint;\nvoid main() {').replace('#include <opaque_fragment>', HALFTONE);
   };
   m.customProgramCacheKey = () => 'halftone';
+  return m;
+}
+// woven fabrics drawn in object space (6): pinstripe, check, twill, hi-vis bands, floral, trouser crease
+const PATTERNS = {
+  pinstripe:'diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb + .45, step(.93, fract(vPat.z * 16.)) * .7);',
+  check:'{ vec2 q = fract(vPat.zy * 6.); float l = max(step(.88, q.x), step(.88, q.y)); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.35 + .04, l * .55); diffuseColor.rgb *= 1. - .08 * step(.5, fract(vPat.z * 3.)) * step(.5, fract(vPat.y * 3.)); }',
+  twill:'diffuseColor.rgb *= 1. - .06 * step(.5, fract((vPat.y + vPat.z) * 40.));',
+  hivis:'{ float b = step(.85, fract(vPat.y * 2.2 + .1)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.85, .88, .9), b); }',
+  floral:'{ vec2 q = fract(vPat.zy * 5.) - .5; float pet = smoothstep(.2, .15, length(q) * (1. + .5 * sin(atan(q.y, q.x) * 5.))); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1., .9, .3), pet * .8); }',
+  crease:'diffuseColor.rgb *= 1. - .25 * (1. - smoothstep(.0, .03, abs(fract(vUvPat.x * 2. + .25) - .5) - .0));',
+};
+// All woven fabrics share one shader program, picked per material by uPat, so they don't each
+// compile at boot. The trouser crease needs UVs (sculpted parts have none), so it's its own program.
+const PATTERN_IDS = ['pinstripe', 'check', 'twill', 'hivis', 'floral', 'crease'];
+const FABRIC = PATTERN_IDS.slice(0, 5).map((k, i) => `${i ? 'else ' : ''}if (uPat == ${i}) { // pattern: ${k}\n  ${PATTERNS[k]}\n  }`).join('\n  ');
+function withPattern(m, kind) {
+  if (!kind || !PATTERNS[kind]) return m;
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey?.() ?? '', uvs = kind === 'crease';
+  const uPat = { value:PATTERN_IDS.indexOf(kind) };
+  m.onBeforeCompile = sh => {
+    prev?.call(m, sh); sh.uniforms.uPat = uPat;
+    const vary = `varying vec3 vPat;\n${uvs ? 'varying vec2 vUvPat;\n' : ''}`;
+    sh.vertexShader = sh.vertexShader.replace('void main() {', `${vary}void main() {\n  vPat = position;${uvs ? ' vUvPat = uv;' : ''}`);
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', `${vary}uniform int uPat;\nvoid main() {`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n  ${uvs ? `// pattern: crease\n  ${PATTERNS.crease}` : FABRIC}`);
+  };
+  m.customProgramCacheKey = () => key + (uvs ? '-crease' : '-fabric');
+  return m;
+}
+// fresnel rim light in a given colour (73: arena sky, 13: party colour); m.userData.rim updates it
+function withRim(m, rgb) {
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey?.() ?? '';
+  const rim = m.userData.rim = { value:new THREE.Vector3(...rgb) };
+  m.onBeforeCompile = sh => {
+    prev?.call(m, sh); sh.uniforms.uRim = rim;
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform vec3 uRim;\nvoid main() {').replace('#include <opaque_fragment>',
+      '{ float rimK = pow(1. - abs(dot(normalize(normal), normalize(vViewPosition))), 3.); outgoingLight += uRim * rimK * .5; }\n#include <opaque_fragment>');
+  };
+  m.customProgramCacheKey = () => key + '-rim';
   return m;
 }
 const OL = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide });
@@ -161,4 +208,4 @@ function smokeStack(p, x, y, z, { scale = 1, color = 0xeeeeee, rate = .35, rise 
   };
 }
 
-export { gradTex, toon, halftone, OL, _s, _c, outline, inkMats, inkMaterial, ink, disposeObj, place, BOX, CYL, SPH, CONE, PRISM, ground, water, mountain, tree, textTex, sign, skyTex, flagTex, wavingFlag, smokeStack };
+export { PATTERNS, PATTERN_IDS, withPattern, LOOK, setShadowTint, withRim, gradTex, toon, halftone, OL, _s, _c, outline, inkMats, inkMaterial, ink, disposeObj, place, BOX, CYL, SPH, CONE, PRISM, ground, water, mountain, tree, textTex, sign, skyTex, flagTex, wavingFlag, smokeStack };

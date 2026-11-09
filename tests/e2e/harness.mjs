@@ -54,7 +54,7 @@ export async function browser({ width = 1280, height = 720, mobile = false } = {
     errors, send,
     goto: async url => { await send('Page.navigate', { url }); },
     eval: async expr => (await send('Runtime.evaluate', { expression:expr, awaitPromise:true, returnByValue:true })).result?.result?.value,
-    waitFor: async (expr, ms = 30000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await page.eval(expr)) return true; await sleep(250); } return false; },
+    waitFor: async (expr, ms = 90000) => { /* headless software rendering boots slowly */ const t = Date.now(); while (Date.now() - t < ms) { if (await page.eval(expr)) return true; await sleep(250); } return false; },
     key: async (code, ms = 70) => {
       await page.eval(`dispatchEvent(new KeyboardEvent('keydown',{code:'${code}',bubbles:true}))`); await sleep(ms);
       await page.eval(`dispatchEvent(new KeyboardEvent('keyup',{code:'${code}',bubbles:true}))`); await sleep(80);

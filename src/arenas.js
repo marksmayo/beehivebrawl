@@ -198,6 +198,9 @@ function backdrop(g, paint, { kerb = 0xe8e2d4, R = 27, cz = 8, arc = 2.45, h = 1
     m.position.set(0, y0 + height / 2, cz); m.userData.layer = layer; m.renderOrder = { sky:-3, clouds:-2, scene:-1 }[layer]; g.add(m); return m;
   };
   const scene = shell(R, h, p.tex(), 'scene');
+  { const b = document.createElement('canvas'); b.width = 512; b.height = 128; const bg = b.getContext('2d'); bg.filter = 'blur(3px)'; bg.drawImage(p.c, 0, 0, 512, 128);
+    const bt = new THREE.CanvasTexture(b); bt.colorSpace = THREE.SRGBColorSpace; scene.userData.blurMap = bt; scene.userData.sharpMap = scene.material.map; }
+  g.userData.sceneLayer = scene;
   if (!indoor) { // parallax: the sky and the clouds sit further back than the painted scene (57)
     const L = parallaxLayers(stage?.id), skyR = L[0].R, cloudR = L[1].R;
     const sk = new Pn(256, 512, 3); sk.sky(p.skyStops ?? [[0, '#5f86bd'], [1, '#e8eef2']], 512 * (p.skyH / BD.H));

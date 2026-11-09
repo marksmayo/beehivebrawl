@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { stage, stageFx, tickStage } from './arenas.js';
+import { curTod, stage, stageFx, stageGroup, tickStage } from './arenas.js';
+import { GRADES, shadowTintFor } from './arenadata.js';
+import { setShadowTint } from './kit.js';
+import { victoryOutfit } from './charlogic.js';
 import { ambienceTick, noise, say, sfx } from './audio.js';
 import { banner, bubble, floater, updateFloaters } from './dom.js';
 import { updateFx } from './effects.js';
@@ -9,11 +12,16 @@ import { camera, renderer, scene } from './renderer.js';
 import { touchFrame, updateTouchUI } from './touchui.js';
 import { shakeOffset } from './anim.js';
 import { cinePath, flyThrough, framing, koSlowmo, replayCamera, vignettePulse } from './camerafx.js';
-import { updateCombos, updateImpact } from './comicfx.js';
+import { celebrate, updateCombos, updateImpact } from './comicfx.js';
 import { portraitMood, speedLinesOn } from './fxlogic.js';
 import { portraits } from './portraits.js';
 import { PrintPost } from './post.js';
 
+let graded = '';
+function focusBackdrop(blur) {
+  const o = stageGroup?.userData.sceneLayer; if (!o?.userData.blurMap) return;
+  const m = blur ? o.userData.blurMap : o.userData.sharpMap; if (o.material.map !== m) o.material.map = m;
+}
 const post = new PrintPost(renderer); // paper grain + plate misregistration (49)
 post.enabled = !new URLSearchParams(location.search).has('nopost');
 addEventListener('resize', () => post.resize());
@@ -109,6 +117,9 @@ function frame(now) {
   updateCamera(dt); updateFloaters(dt); updateTouchUI(); updateImpact(dt); updateCombos(game.p);
   $('#speedlines').classList.toggle('on', speedLinesOn(game.p, game.cine)); // (43)
   post.mat.uniforms.uHaze.value = stageFx?.haze ?? 0; ambienceTick(dt);
+  const key = `${stage?.id}:${curTod}`;
+  if (key !== graded) { graded = key; post.grade(GRADES[stage?.id]); setShadowTint(shadowTintFor(stage?.id, curTod)); } // grade (77) + shadow tint (74)
+  focusBackdrop(!!game.cine || game.phase === 'replay'); // depth of field during cinematics (76)
   if (post.enabled) post.render(scene, camera, clock); else renderer.render(scene, camera); // print pass (49)
 }
 function tick(dt) {
@@ -160,7 +171,7 @@ function tick(dt) {
     if (!game.victoryShown && game.phaseT > 1.8) {
       game.victoryShown = true;
       const w = game.roundWinner;
-      if (w) { w.state = 'victory'; w.stateT = 0; w.vIdx = (Math.random() * 2) | 0; const q = pick(w.def.quips); bubble(w, q, { dur:2 }); say(q, { pitch:w.def.pitch }); }
+      if (w) { w.state = 'victory'; w.stateT = 0; w.vIdx = (Math.random() * 2) | 0; celebrate(w, victoryOutfit(w.def.id, w.vIdx)); /* victory outfit (20) */ const q = pick(w.def.quips); bubble(w, q, { dur:2 }); say(q, { pitch:w.def.pitch }); }
     }
     if (game.final && game.phaseT > 2.8 && game.replay.frames().length > 10) startReplay();
     else if (game.phaseT > 4.4) nextRoundOrResult();

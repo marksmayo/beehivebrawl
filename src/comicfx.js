@@ -132,4 +132,20 @@ function updateCombos(fighters) {
   });
 }
 
-export { word3d, splat, debris, flames, plume, impactFrame, updateImpact, koStamp, updateCombos };
+function celebrate(f, outfit) {
+  if (outfit === 'crown') { f.crown.visible = true; return; }
+  const colors = outfit === 'champagne' ? [0xfff3b0, 0xffffff, 0xffe27a] : [0xc8102e, 0xffd23f, 0x3f8fe0, 0x2d9b3a, 0xffffff];
+  const geo = outfit === 'champagne' ? new THREE.SphereGeometry(.05, 6, 4) : new THREE.PlaneGeometry(.12, .07), bits = [];
+  for (let i = 0; i < 70; i++) {
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color:colors[i % colors.length], side:THREE.DoubleSide, transparent:true }));
+    m.position.set(f.x + (outfit === 'champagne' ? f.facing * .5 : rand(-1.5, 1.5)), outfit === 'champagne' ? 2.2 : rand(4, 6), rand(-.5, .5)); m.userData.fx = outfit; scene.add(m);
+    bits.push({ m, v:outfit === 'champagne' ? new THREE.Vector3(f.facing * rand(1, 3), rand(4, 8), rand(-1, 1)) : new THREE.Vector3(rand(-.5, .5), rand(-1, 0), rand(-.3, .3)), w:rand(-8, 8) });
+  }
+  let t = 0;
+  addFx({ update(dt) { t += dt; for (const b of bits) { b.v.y -= (outfit === 'champagne' ? 9 : 1.5) * dt; b.m.position.addScaledVector(b.v, dt); b.m.rotation.x += b.w * dt; b.m.rotation.y += b.w * .7 * dt; b.m.position.x += Math.sin(t * 4 + b.w) * dt * .4; if (b.m.position.y < .05) b.v.set(0, 0, 0); }
+    for (const b of bits) b.m.material.opacity = Math.min(1, (4 - t) / .6); return t < 4; },
+    dispose() { bits.forEach(b => { scene.remove(b.m); b.m.material.dispose(); }); geo.dispose(); } });
+  if (outfit === 'champagne') word3d(f.x + f.facing * .6, 2.6, 'special', true);
+}
+
+export { celebrate, word3d, splat, debris, flames, plume, impactFrame, updateImpact, koStamp, updateCombos };

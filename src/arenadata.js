@@ -20,6 +20,24 @@ const ARENA_META = {
   committee:{ name:'Select Committee Room 3', desc:'Submissions close in five minutes. So does the patience of the chair.', weather:'none', ambience:['murmur'], centre:'mat', water:null, birds:null, hazard:null, indoor:true },
 };
 
+// ---- 77: colour grade per arena (lift / gamma / gain, linear)
+const G = (lift, gamma, gain) => ({ lift, gamma, gain });
+const GRADES = {
+  beehive:G([.01, .01, .03], [1, 1, 1.04], [1, 1, 1.02]), viaduct:G([.04, .01, .03], [1.06, 1, .96], [1.05, .98, .95]), cathedral:G([0, .01, .02], [1, 1.02, 1.04], [1.02, 1.02, 1]),
+  octagon:G([.02, .03, .05], [.94, .96, 1.02], [.92, .95, 1]), queenstown:G([0, .01, .03], [1, 1.02, 1.05], [1.02, 1.02, 1.03]), waitangi:G([.01, .02, 0], [1.02, 1.04, 1], [1.04, 1.04, 1]),
+  taupo:G([.03, .02, 0], [1.05, 1.02, .97], [1.05, 1.02, .97]), mauao:G([0, .01, .03], [1, 1.03, 1.06], [1.02, 1.04, 1.05]), chamber:G([.03, .02, 0], [1.06, 1, .94], [1.05, 1, .92]),
+  aoraki:G([.02, .03, .05], [.98, 1, 1.06], [1, 1.02, 1.06]), cuba:G([.02, .01, .02], [1.03, 1, 1], [1.04, 1, 1]), ponsonby:G([.04, .02, .01], [1.05, 1.02, .98], [1.05, 1.02, .98]),
+  committee:G([.02, .02, .01], [1.03, 1, .96], [1, .98, .93]),
+};
+
+// ---- 74: shadow colour for the place and the hour
+const SHADOW_BASE = { octagon:0x9aa4c8, aoraki:0x9ab4d8, chamber:0xc89a7a, committee:0xc0a080, taupo:0xffa070, ponsonby:0xffa888, viaduct:0xe0a0a8 };
+function shadowTintFor(id, tod = 'day') {
+  if (tod === 'night' && !ARENA_META[id]?.indoor) return 0x6a7ad0;
+  if (tod === 'sunset' && !ARENA_META[id]?.indoor) return 0xc07aa8;
+  return SHADOW_BASE[id] ?? 0xffb08a;
+}
+
 // ---- 56 + 80: paint big on desktop, smaller on phones, never past the GPU limit
 function backdropRes({ mobile, maxTex = 8192 }) {
   const W = Math.min(mobile ? 4096 : 8192, maxTex, 16384);
@@ -82,4 +100,4 @@ const SLOGANS = {
 };
 function billboardFor(id, round) { const l = SLOGANS[id] ?? SLOGANS.default; return l[(round - 1) % l.length]; }
 
-export { AMBIENCES, CENTREPIECES, ARENA_META, backdropRes, parallaxLayers, CHEER, Crowd, TIMES, timeOfDay, Prop, HAZARDS, hazardAt, hazardHits, CAMEOS, SLOGANS, billboardFor };
+export { shadowTintFor, GRADES, AMBIENCES, CENTREPIECES, ARENA_META, backdropRes, parallaxLayers, CHEER, Crowd, TIMES, timeOfDay, Prop, HAZARDS, hazardAt, hazardHits, CAMEOS, SLOGANS, billboardFor };

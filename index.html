@@ -134,6 +134,8 @@
   #hazard { position:fixed; left:50%; top:22%; transform:translateX(-50%) rotate(-3deg); z-index:21; display:none; padding:6px 20px; background:#ffd23f; border:5px solid #111;
     box-shadow:6px 6px 0 #111; font:400 clamp(22px,3.4vw,42px)/1 Bangers,Impact; letter-spacing:.04em; color:#111; }
   #hazard.on { display:block; animation:pulse .3s infinite alternate; }
+  .info .costume { margin-top:6px; font:800 11px Inter,sans-serif; letter-spacing:.08em; }
+  .info .cbtn { font:400 14px Bangers,Impact; background:#ffd23f; border:2px solid #000; padding:0 8px; margin-left:6px; cursor:pointer; }
   /* bio quote bubble on the select screen (87) */
   .info .quote { position:relative; display:inline-block; background:#fff; border:3px solid #000; border-radius:14px; padding:3px 10px; margin-top:6px; font:700 13px 'Comic Neue','Comic Sans MS',cursive; }
   .info .quote::after { content:''; position:absolute; left:18px; bottom:-10px; border:7px solid transparent; border-top-color:#000; }
@@ -402,14 +404,14 @@
   </div>
   <div class="controls">
     <div class="ctl"><h3>1 Player</h3>
-      Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows · <kbd>S</kbd>/<kbd>↓</kbd> blocks<br>
+      Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows · hold back to block high, down to block low · double-tap to dash<br>
       Punch <kbd>J</kbd> · Kick <kbd>K</kbd> · Special A <kbd>L</kbd> · Special B <kbd>I</kbd><br>
-      Super <kbd>O</kbd> when the Mandate meter is full</div>
+      Super <kbd>O</kbd> when the Mandate meter is full · Taunt <kbd>U</kbd> · forward + punch up close throws</div>
     <div class="ctl"><h3>2 Players</h3>
       <b>P1</b> <kbd>WASD</kbd> · <kbd>F</kbd> punch <kbd>G</kbd> kick <kbd>H</kbd> spA <kbd>R</kbd> spB <kbd>T</kbd> super<br>
       <b>P2</b> arrows · <kbd>Num1</kbd>/<kbd>,</kbd> punch <kbd>Num2</kbd>/<kbd>.</kbd> kick <kbd>Num3</kbd>/<kbd>/</kbd> spA <kbd>Num4</kbd>/<kbd>;</kbd> spB <kbd>Num5</kbd>/<kbd>'</kbd> super</div>
     <div class="ctl"><h3>Gamepad</h3>
-      Stick/D-pad move · down blocks<br>
+      Stick/D-pad move · back or down blocks · <kbd>Back</kbd> taunts<br>
       <kbd>X</kbd> punch · <kbd>A</kbd> kick · <kbd>B</kbd> special A · <kbd>Y</kbd> special B · <kbd>RB</kbd> super<br>
       <kbd>Start</kbd> pause</div>
   </div>

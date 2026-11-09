@@ -393,6 +393,30 @@ def build_common():
     h.chain([(.02, .07, -.05), (.06, .065, -.11), (.085, .04, -.13)], .03, .026)
     h.cyl((0, 0, .0), .07, .08)
     make('common__hand', h, voxel=.008, smooth=(.5, 3), faces=1000)
+    # hand shapes swapped in per pose (fist above; open palm, pointing, thumbs up).
+    # Local axes: the hand hangs down -Z from the wrist, knuckles face +X.
+    def fist(extra):
+        b = B()
+        b.sph((0, 0, -.11), (.085, .072, .1))
+        for i in range(4):
+            y = -.048 + .032 * i
+            if extra != 'point' or i != 0: b.sph((.03, y, -.2), .034); b.sph((.075, y, -.15), (.034, .03, .045))
+        b.cyl((0, 0, .0), .07, .08)
+        return b
+    p = B()
+    p.sph((0, 0, -.1), (.05, .085, .11)); p.cyl((0, 0, .0), .07, .08)
+    for i in range(4):
+        y = -.054 + .036 * i
+        p.chain([(.0, y, -.18), (.005, y * 1.1, -.27), (.01, y * 1.15, -.33 + abs(i - 1.5) * .02)], .024, .019)
+    p.chain([(.0, .075, -.08), (.03, .12, -.13), (.05, .14, -.17)], .026, .02)
+    make('common__palm', p, voxel=.008, smooth=(.5, 3), faces=1000)
+    pt = fist('point')
+    pt.chain([(.03, -.048, -.18), (.03, -.05, -.28), (.03, -.05, -.36)], .026, .02)  # index finger along the arm
+    pt.chain([(.02, .07, -.05), (.06, .065, -.11), (.085, .04, -.13)], .03, .026)
+    make('common__point', pt, voxel=.008, smooth=(.5, 3), faces=1000)
+    th = fist('thumb')
+    th.chain([(.05, .065, -.07), (.12, .06, -.07), (.18, .055, -.06)], .03, .025)  # thumb out along +X (up when the arm is raised)
+    make('common__thumb', th, voxel=.008, smooth=(.5, 3), faces=1000)
     make('common__cuff', B().cyl((0, 0, .02), .095, .07, r2=.09), voxel=.008, smooth=(.5, 1), faces=600)
     s = B()
     s.sph((-.08, 0, -.03), (.11, .12, .085))

@@ -3,6 +3,7 @@ import { STAGES, arenaArt, buildStage, stage, stageFx } from './arenas.js';
 import { TIMES } from './arenadata.js';
 import { isTouch } from './touchui.js';
 import { INTROS } from './anim.js';
+import { COSTUMES, costume, wearLevel } from './charlogic.js';
 import { ReplayBuffer } from './camerafx.js';
 import { impactFrame, koStamp } from './comicfx.js';
 import { fillNewspaper, fillOrderPaper, hideNameCards, renderCover, renderGallery, resetPolls, saveWin, setPortraits, showVS } from './screens.js';
@@ -11,7 +12,7 @@ import { banner, bubble, clearFloaters, floater, hideBanner, screenFlash } from 
 import { clearFx } from './effects.js';
 import { Fighter } from './fighter.js';
 import { camPos } from './loop.js';
-import { portraits } from './portraits.js';
+import { moodPortraits, portraits } from './portraits.js';
 import { scene } from './renderer.js';
 import { KO_SUBS, ROSTER } from './roster.js';
 import { $, hex, pick, rand } from './util.js';
@@ -20,7 +21,7 @@ import { $, hex, pick, rand } from './util.js';
 
 const game = {
   phase:'title', mode:'cpu', diff:1, p:[null, null], ai:null, aiA:null, aiB:null,
-  sel:[0, 1], conf:[false, false], stageIdx:(Math.random() * 13) | 0, round:1, timer:60, phaseT:0, freezeT:0, timeScale:1, shakeT:0, demo:true,
+  sel:[0, 1], conf:[false, false], costume:['parliament', 'parliament'], stageIdx:(Math.random() * 13) | 0, round:1, timer:60, phaseT:0, freezeT:0, timeScale:1, shakeT:0, demo:true,
   replay:new ReplayBuffer(2.2, 30), final:false, slowT:0, camRoll:0,
   wind:0, windT:5, windDir:0, cine:null, introStep:0, victoryShown:false, roundWinner:null, paused:false,
   hitstop(t) { this.freezeT = Math.max(this.freezeT, t); },
@@ -51,9 +52,15 @@ const game = {
   },
 };
 
-function setFighters(defA, defB) {
+const dress = (d, name) => !name || name === 'parliament' ? d : { ...d, ...costume(d, name), costume:name };
+function cycleCostume(p) {
+  if (game.phase !== 'select' || game.conf[p]) return;
+  game.costume[p] = COSTUMES[(COSTUMES.indexOf(game.costume[p]) + 1) % COSTUMES.length]; sfx.select(); updateGrid();
+}
+document.addEventListener('click', e => { const b = e.target.closest?.('.cbtn'); if (b) { e.stopPropagation(); cycleCostume(+b.dataset.p); } }, true);
+function setFighters(defA, defB, costumes = []) {
   game.p.forEach(f => f && f.dispose());
-  const a = new Fighter(defA, 0), b = new Fighter(defB, 1);
+  const a = new Fighter(dress(defA, costumes[0]), 0), b = new Fighter(dress(defB, costumes[1]), 1);
   a.opp = b; b.opp = a; scene.add(a.root); scene.add(b.root);
   game.p = [a, b];
 }
@@ -108,6 +115,7 @@ function infoHTML(d, side) {
     <div class="in">${d.name}</div>
     <div class="ib">${d.bio}</div>
     <div class="quote">${d.quips[0]}</div>
+    <div class="costume">Outfit: <b>${(game.costume[side ?? 0] ?? 'parliament').toUpperCase()}</b> <button class="cbtn" data-p="${side ?? 0}">change</button></div>
     <div class="mv"><b>A:</b> ${d.moves.a.name} &nbsp; <b>B:</b> ${d.moves.b.name}<br><b>SUPER:</b> ${d.moves.s.name}</div>
     <div>${st('SPD', d.stats.speed)}${st('PWR', d.stats.power)}${st('DEF', d.stats.defense)}</div>`;
 }
@@ -117,7 +125,7 @@ function updateGrid() {
     c.classList.toggle('s1', game.sel[0] === i); c.classList.toggle('s2', show2 && game.sel[1] === i);
     c.classList.toggle('c1', game.conf[0] && game.sel[0] === i); c.classList.toggle('c2', game.conf[1] && game.sel[1] === i);
   });
-  $('#info0').innerHTML = infoHTML(ROSTER[game.sel[0]]); $('#info0').classList.toggle('conf', game.conf[0]);
+  $('#info0').innerHTML = infoHTML(ROSTER[game.sel[0]], 0); $('#info0').classList.toggle('conf', game.conf[0]);
   const show2 = game.mode !== 'cpu' || game.conf[0];
   $('#info1').innerHTML = show2 ? infoHTML(ROSTER[game.sel[1]]) : '<div class="in">CPU</div><div class="ib">Waiting to see who you pick, then choosing the most annoying opponent available.</div>';
   $('#info1').classList.toggle('conf', game.conf[1]);
@@ -174,7 +182,8 @@ function startMatch() {
   game.demo = false; clearFloaters();
   game.tod = Math.random() < .5 ? 'day' : Math.random() < .6 ? 'sunset' : 'night'; // (59)
   buildStage(STAGES[game.stageIdx], { tod:game.tod });
-  setFighters(ROSTER[game.sel[0]], ROSTER[game.sel[1]]);
+  setFighters(ROSTER[game.sel[0]], ROSTER[game.sel[1]], game.costume);
+  moodPortraits([ROSTER[game.sel[0]], ROSTER[game.sel[1]]]);
   if (game.mode === 'cpu') game.ai = new AI(game.p[1], game.diff);
   game.round = 1;
   for (let i = 0; i < 2; i++) {
@@ -191,7 +200,8 @@ function startMatch() {
 function startRound() {
   const [a, b] = game.p;
   clearFx(); clearFloaters();
-  a.resetRound(-3); b.resetRound(3); resetPolls(); game.replay.clear(); game.final = false;
+  const wear = [wearLevel(b.wins, a.hp), wearLevel(a.wins, b.hp)];
+  a.resetRound(-3); b.resetRound(3); a.setWear(game.round > 1 ? wear[0] : 0); b.setWear(game.round > 1 ? wear[1] : 0); resetPolls(); game.replay.clear(); game.final = false;
   stageFx?.setRound(game.round); // a new billboard slogan (67)
   for (const f of [a, b]) enterStage(f); // per-character round intros (33)
   game.phase = 'intro'; game.phaseT = 0; game.introStep = 0; game.timer = 60; game.timeScale = 1; game.wind = 0; game.windT = rand(4, 8);
@@ -267,6 +277,8 @@ function menuKey(code) {
       if (['KeyF', 'KeyJ', 'Space'].includes(code) || (cpu && code === 'Enter')) selConfirm(0);
       if (!cpu && ['Enter', 'Numpad1', 'Comma', 'NumpadEnter'].includes(code)) selConfirm(1);
       if (code === 'Tab') cycleVenue(1);
+      if (code === 'KeyC') cycleCostume(0);
+      if (code === 'KeyN' && !cpu) cycleCostume(1);
       if (code === 'Escape' || code === 'Backspace') selBack();
       break; }
     case 'fight': case 'intro': case 'ko': case 'paused':

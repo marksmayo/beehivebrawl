@@ -27,6 +27,7 @@ function bubble(f, text, { dur = 1.8, shout = false } = {}) {
   let b = bubbles.get(f);
   if (!b) { b = { el:document.createElement('div') }; floatLayer.appendChild(b.el); bubbles.set(f, b); }
   b.el.className = 'bubble' + (shout ? ' shout' : ''); b.el.textContent = text; b.life = dur; b.el.style.display = 'block';
+  f.speak?.(text); // lip-sync (16)
   void b.el.offsetWidth; b.el.classList.add('pop');
 }
 function clearBubbles() { bubbles.forEach(b => b.el.remove()); bubbles.clear(); }

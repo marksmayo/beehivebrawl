@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { INK, Pn, stage } from './arenas.js';
+import { INK, Pn, shade, stage } from './arenas.js';
 import { say, sfx } from './audio.js';
 import { applyHit } from './combat.js';
 import { bubble, bubbles, floater } from './dom.js';
 import { bikeMesh, dust, effects, trail, fxDrop, fxEruption, fxHeal, fxHole, fxPillar, fxRain, ringFx, rm, sparks, spawnProjectile, trainMesh } from './effects.js';
 import { game } from './game.js';
-import { disposeObj, ink, inkMaterial, outline, toon } from './kit.js';
+import { disposeObj, ink, inkMaterial, outline, toon, withPattern, withRim } from './kit.js';
 import { PARTS } from './parts.js';
 import { scene } from './renderer.js';
 import { BOUND, GRAV, JUMP, SPEED, clamp, damp, hex, pick } from './util.js';
@@ -15,6 +15,8 @@ import {
   INTROS, VICTORY, loserPose, smearStretch, Spring, TURN_TIME, turnAngle, wantsGuard, guardPose, ATTACK_HEIGHT,
 } from './anim.js';
 import { skinnedLimb } from './rig.js';
+import { SILHOUETTE, dishevel, handFor, rimColor, skinShadow, suitPattern } from './charlogic.js';
+import { PROP_STATES, buildFaceRig, contactShadow, glowSprite, hairTexture, projectSphereUV, rosette, signatureProp, speak, updateFaceRig, withSkinShadow } from './fighterlook.js';
 import { InputBuffer, canCancel } from './camerafx.js';
 
 // Fighter
@@ -33,31 +35,54 @@ const G_CAP = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 14);
 // projection, one texture per expression (n = neutral, open = shouting, hurt)
 // =====================================================================
 const FACES = {
-  luxon:     { brow:'#6a5444', bw:9,  tilt:.05,  arch:10, eye:'#4f7fa8', lid:.35, mouth:'grin',  mw:64, lines:['smile', 'dome'] },
+  luxon:     { stubble:true, brow:'#6a5444', bw:9,  tilt:.05,  arch:10, eye:'#4f7fa8', lid:.35, mouth:'grin',  mw:64, lines:['smile', 'dome'] },
   hipkins:   { brow:'#a8784a', bw:8,  tilt:-.05, arch:8,  eye:'#6a5a40', lid:.3,  mouth:'grin',  mw:54, lines:['smile', 'blush'] },
-  seymour:   { brow:'#2a1e16', bw:11, tilt:.12,  arch:3,  eye:'#4a7aa8', lid:.5,  mouth:'smirk', mw:48, lines:['smile', 'jaw'] },
-  peters:    { brow:'#8e8e8e', bw:14, tilt:.28,  arch:6,  eye:'#6a7a80', lid:.55, mouth:'smirk', mw:56, lines:['smile', 'forehead', 'crows', 'bags'] },
+  seymour:   { stubble:true, brow:'#2a1e16', bw:11, tilt:.12,  arch:3,  eye:'#4a7aa8', lid:.5,  mouth:'smirk', mw:48, lines:['smile', 'jaw'] },
+  peters:    { stubble:true, brow:'#8e8e8e', bw:14, tilt:.28,  arch:6,  eye:'#6a7a80', lid:.55, mouth:'smirk', mw:56, lines:['smile', 'forehead', 'crows', 'bags'] },
   swarbrick: { brow:'#4a3020', bw:7,  tilt:-.08, arch:12, eye:'#4a7aa8', lid:.22, mouth:'grin',  mw:50, lips:'#cf5a5a', lash:true, lines:['blush'] },
   willis:    { brow:'#3a2218', bw:7,  tilt:-.06, arch:13, eye:'#4a7aa8', lid:.22, mouth:'grin',  mw:58, lips:'#c8303a', lash:true, lines:['smile'] },
   waititi:   { brow:'#1a1a1a', bw:12, tilt:.15,  arch:6,  eye:'#2a1a10', lid:.4,  mouth:'grin',  mw:58, lines:['smile'] },
-  brownlee:  { brow:'#bdbdbd', bw:10, tilt:0,    arch:8,  eye:'#4a7aa8', lid:.45, mouth:'grin',  mw:56, lines:['smile', 'bags', 'chin'] },
+  brownlee:  { stubble:true, brow:'#bdbdbd', bw:10, tilt:0,    arch:8,  eye:'#4a7aa8', lid:.45, mouth:'grin',  mw:56, lines:['smile', 'bags', 'chin'] },
 };
 const faceCache = {};
-function faceSet(d) { return faceCache[d.id] ??= { n:paintFace(d, 'n'), open:paintFace(d, 'open'), hurt:paintFace(d, 'hurt') }; }
-function paintFace(d, mode) {
+// the neutral face is painted up front; shouting and hurt faces are painted the first time they're needed
+function faceSet(d, wear = 0) {
+  return faceCache[`${d.id}:${wear}`] ??= (() => {
+    const set = { n:paintFace(d, 'n', wear) };
+    for (const mode of ['open', 'hurt']) Object.defineProperty(set, mode, { enumerable:true, configurable:true, get() { const t = paintFace(d, mode, wear); Object.defineProperty(set, mode, { value:t, enumerable:true }); return t; } });
+    return set;
+  })();
+}
+function paintFace(d, mode, wear = 0) {
   const F = FACES[d.id] ?? FACES.luxon, S = 512, U = S / 1.3, p = new Pn(S, S, 11), g = p.g;
   const cx = S / 2, Y = y => S / 2 - y * U;            // head-local height -> canvas row
   g.fillStyle = hex(d.skin); g.fillRect(0, 0, S, S);
   const q = (x0, y0, kx, ky, x1, y1, w, a = 1, c = INK) => { g.save(); g.globalAlpha = a; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(kx, ky, x1, y1); g.lineWidth = w; g.strokeStyle = c; g.stroke(); g.restore(); };
   const ey = Y(.05), my = Y(-.3), angry = mode === 'open' ? .25 : 0, lid = mode === 'open' ? F.lid * .4 : F.lid;
   const L = F.lines;
+  // soft painted modelling (1): cheekbones, a shadow under the brow ridge, the side of the nose, under the chin
+  // a soft-edged dab of colour: a radial gradient (canvas blur filters are far too slow on phones)
+  const soft = (x, y, rx, ry, c, a) => {
+    const h = typeof c === 'string' ? c : '#' + new THREE.Color(c).getHexString(), n = parseInt(h.slice(1, 7), 16); // sRGB as written
+    const rgba = k => `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${k})`;
+    g.save(); g.globalAlpha = a; g.translate(x, y); g.scale(rx * 1.4, ry * 1.4);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, rgba(1)); gr.addColorStop(.55, rgba(.75)); gr.addColorStop(1, rgba(0));
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore();
+  };
+  const sh = shade(hex(d.skin), -.28), hl = shade(hex(d.skin), .35);
+  // painterly mottling: soft blotches of warmer and cooler skin so it reads as painted, not filled
+  for (let i = 0; i < 220; i++) soft(p.r(30, S - 30), p.r(30, S - 30), p.r(8, 30), p.r(6, 24), p.r() < .5 ? shade(hex(d.skin), p.r(-.3, -.08)) : p.r() < .5 ? shade(hex(d.skin), p.r(.08, .25)) : shade('#e8806a', p.r(-.1, .1)), .22);
+  for (const s of [-1, 1]) { soft(cx + s * 110, Y(-.08), 46, 30, sh, .35); soft(cx + s * 86, ey - 30, 52, 16, sh, .3); soft(cx + s * 70, Y(.3), 60, 26, hl, .25); }
+  soft(cx + 20, Y(-.02), 12, 46, sh, .35); soft(cx - 8, Y(-.06), 10, 30, hl, .4); soft(cx, Y(-.5), 90, 22, sh, .4);
+  if (FACES[d.id]?.stubble) { g.save(); g.globalAlpha = .22; g.fillStyle = shade(hex(d.skin), -.5); // stubble stipple
+    for (let i = 0; i < 900; i++) { const a = p.r(0, Math.PI), r = p.r(.6, 1); const x = cx + Math.cos(a) * 150 * r, y = Y(-.3) + Math.sin(a) * 90 * r; if (Math.abs(x - cx) < 70 && y < Y(-.24)) continue; g.fillRect(x, y, 2, 2); } g.restore(); }
   if (L.includes('blush')) for (const s of [-1, 1]) { g.save(); g.globalAlpha = .22; g.fillStyle = '#e8604f'; g.beginPath(); g.ellipse(cx + s * 100, Y(-.12), 38, 24, 0, 0, 7); g.fill(); g.restore(); }
   for (const s of [-1, 1]) {
     const ex = cx + s * 79;
     // brow: a tapered, inked wedge, inner end (toward the nose) heavier
     const ix = ex - s * 38, ox = ex + s * 48, iy = ey - 56 + (F.tilt + angry) * 44, oy = ey - 54 - (F.tilt + angry) * 12, ky = ey - 62 - F.arch;
-    g.beginPath(); g.moveTo(ix, iy); g.quadraticCurveTo(ex, ky, ox, oy); g.quadraticCurveTo(ex, ky + F.bw * 1.3, ix, iy + F.bw * 1.8); g.closePath();
-    g.fillStyle = F.brow; g.fill(); g.lineWidth = 4; g.strokeStyle = INK; g.stroke();
+    g.save(); g.globalAlpha = .18; g.beginPath(); g.moveTo(ix, iy); g.quadraticCurveTo(ex, ky, ox, oy); g.quadraticCurveTo(ex, ky + F.bw * 1.3, ix, iy + F.bw * 1.8); g.closePath();
+    g.fillStyle = F.brow; g.fill(); g.restore(); // the brow itself is an animated decal (15)
     if (mode === 'hurt') { // screwed shut
       q(ex - s * 28, ey - 10, ex, ey + 4, ex + s * 26, ey + 2, 6); q(ex - s * 28, ey + 10, ex, ey + 2, ex + s * 26, ey + 2, 4);
       continue;
@@ -66,11 +91,8 @@ function paintFace(d, mode) {
     const almond = () => { g.beginPath(); g.moveTo(ex - 36, ey); g.quadraticCurveTo(ex, ey - hu * 2.1, ex + 36, ey); g.quadraticCurveTo(ex, ey + hl * 1.8, ex - 36, ey); g.closePath(); };
     almond(); g.fillStyle = '#f7f3ea'; g.fill();
     g.save(); almond(); g.clip();
-    g.fillStyle = F.eye; g.beginPath(); g.arc(ex, ey + 1, 17, 0, 7); g.fill(); g.lineWidth = 2.5; g.strokeStyle = INK; g.stroke();
-    g.fillStyle = '#0d0a08'; g.beginPath(); g.arc(ex, ey + 1, 9, 0, 7); g.fill();
-    g.fillStyle = 'rgba(60,40,30,.35)'; g.fillRect(ex - 34, ey - 30, 68, 30 - hu * .85); // upper-lid shadow
+    g.fillStyle = 'rgba(60,40,30,.35)'; g.fillRect(ex - 34, ey - 30, 68, 30 - hu * .85); // upper-lid shadow (irises are decals that track, 14)
     g.restore();
-    g.fillStyle = '#fff'; g.beginPath(); g.arc(ex - 5, ey - 5, 4, 0, 7); g.fill();
     // lid lines: heavy upper with a flick, light lower, crease above
     g.beginPath(); g.moveTo(ex - 36, ey + 1); g.quadraticCurveTo(ex, ey - hu * 2.1, ex + 36, ey); g.lineWidth = 8.5; g.strokeStyle = INK; g.stroke();
     q(ex + s * 34, ey, ex + s * 42, ey - 6, ex + s * 48, ey - 9, 5.5);
@@ -113,7 +135,15 @@ function paintFace(d, mode) {
     q(cx + mw - 6, my - 18, cx + mw + 6, my - 12, cx + mw + 2, my - 2, 3.5);
     q(cx - 20, my + 22, cx, my + 27, cx + 20, my + 21, 3, .4);
   }
+  if (wear >= 1) plaster(g, cx + 118, Y(-.05), .5);
+  if (wear >= 2) { g.save(); g.globalAlpha = .45; g.fillStyle = '#6a3a7a'; g.restore(); soft(cx - 90, ey + 30, 40, 22, '#6a3a7a', .5); }
+  if (wear >= 3) { g.save(); g.globalAlpha = .55; g.fillStyle = '#2a1a3a'; g.restore(); soft(cx + 79, ey, 52, 40, '#2a1a3a', .6); plaster(g, cx - 40, Y(.38), -.3); }
   return p.tex();
+}
+function plaster(g, x, y, rot) {
+  g.save(); g.translate(x, y); g.rotate(rot); g.fillStyle = '#f0d0a8'; g.strokeStyle = INK; g.lineWidth = 3;
+  g.beginPath(); g.roundRect(-34, -11, 68, 22, 8); g.fill(); g.stroke(); g.fillStyle = '#e8b888'; g.fillRect(-12, -9, 24, 18);
+  g.fillStyle = '#c89868'; for (let i = 0; i < 6; i++) g.fillRect(-26 + i * 10, -3, 2, 2); g.restore();
 }
 
 class Fighter {
@@ -201,12 +231,13 @@ class Fighter {
   }
   // Sculpted Blender parts (models/fighters.js) on the same pivot rig as the procedural build.
   buildSculpted(K) {
-    const d = this.def, w = d.build.w, P = this.pose, C = PARTS.common;
+    const d = this.def, w = d.build.w, P = this.pose, C = PARTS.common, S = SILHOUETTE[d.id] ?? { shoulders:1, belly:0, head:1 };
     const mat = (color, o = {}) => this.M(color, o);
     const suitC = d.suit ?? d.color;
     // the face is drawn, not modelled: skin carries the painted features (front-projected UVs)
     const faces = this.faces = faceSet(d), skin = this.faceMat = mat(0xffffff, { vc:true }); skin.map = faces.n;
     const skinP = mat(d.skin);
+    withSkinShadow(skin, skinShadow(d.skin)); withSkinShadow(skinP, skinShadow(d.skin)); // warm shadows on skin (12)
     const sg = K.skin.geo;
     if (!sg.attributes.uv) {
       const P = sg.attributes.position, uv = new Float32Array(P.count * 2);
@@ -216,9 +247,10 @@ class Fighter {
       }
       sg.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     }
-    const hair = mat(d.hair.color, { rough:.6 }), shirt = mat(d.shirt ?? 0xf2f2f2, { rough:.7 });
-    const suit = mat(suitC, { rough:.78 }), lapel = mat(new THREE.Color(suitC).multiplyScalar(.82), { rough:.6 });
-    const pants = mat(new THREE.Color(suitC).multiplyScalar(.85), { rough:.8 });
+    const hair = mat(d.hair.color, { rough:.6 }), shirt = withPattern(mat(d.shirt ?? 0xf2f2f2, { rough:.7 }), d.costume === 'beach' ? 'floral' : null);
+    hair.map = hairTexture(d.id.length); // painted strands (2)
+    const suit = withPattern(mat(suitC, { rough:.78 }), d.costume === 'campaign' ? 'hivis' : suitPattern(d.id)), lapel = mat(new THREE.Color(suitC).multiplyScalar(.82), { rough:.6 }); // fabrics (6)
+    const pants = withPattern(mat(new THREE.Color(d.costume === 'campaign' || d.costume === 'beach' ? 0x2a3550 : suitC).multiplyScalar(.85), { rough:.8 }), 'crease');
     const roles = {
       skin, hair,
       beard:mat(d.beardColor ?? d.hair.color, { rough:.8 }),
@@ -231,9 +263,9 @@ class Fighter {
       const o = new THREE.Mesh(src.geo, m); o.position.copy(src.pos); o.castShadow = true; o.receiveShadow = true;
       if (t) ink(o, t); parent.add(o); return o;
     };
-    const torso = new THREE.Group(); torso.position.y = 1.42; torso.scale.set(w, 1, w); P.add(torso);
+    const torso = this.torso = new THREE.Group(); torso.position.y = 1.42; torso.scale.set(w * (1 + S.belly * .35), 1, w * S.shoulders); P.add(torso); // silhouette (8)
     const neck = this.mesh(new THREE.CylinderGeometry(.15, .17, .3, 16), skinP, 0); neck.position.y = 1.98; P.add(neck);
-    const H = this.head = new THREE.Group(); H.position.y = 2.5; P.add(H);
+    const H = this.head = new THREE.Group(); H.position.y = 2.5; H.scale.setScalar(S.head); P.add(H); // caricature head (3)
     // hair and tie hang off springy pivots (secondary motion): at the crown, and at the knot
     this.hairPivot = new THREE.Group(); this.hairPivot.position.set(-.05, .5, 0); H.add(this.hairPivot);
     this.tiePivot = new THREE.Group(); this.tiePivot.position.set(.3, .5, 0); torso.add(this.tiePivot);
@@ -241,11 +273,18 @@ class Fighter {
       if (!roles[role]) continue;
       const body = ['jacket', 'lapel', 'shirt', 'tie', 'button'].includes(role);
       const parent = role === 'hair' ? this.hairPivot : role === 'tie' ? this.tiePivot : body ? torso : H;
-      const o = part(parent, src, roles[role], noInk.has(role) ? 0 : ol);
+      const o = part(parent, src, roles[role], noInk.has(role) ? 0 : ol); o.userData.role = role;
+      if (role === 'hair') projectSphereUV(src.geo);
+      if (role === 'band') o.userData.signature = 'hatband';
+      if (role === 'skin') this.skinMesh = o;
       if (parent === this.hairPivot || parent === this.tiePivot) o.position.sub(parent.position);
     }
     this.mouth = new THREE.Group(); H.add(this.mouth); // expressions are texture swaps, see animate()
     this.addExtras(H);
+    this.faceRig = buildFaceRig(this, this.skinMesh, H, FACES[d.id] ?? FACES.luxon); this.irises = this.faceRig.irises; this.brows = this.faceRig.brows;
+    this.mouthDecal = this.faceRig.mouth.g; this.decals = this.faceRig.decals;
+    const ros = rosette(d.pcol, mat); ros.position.set(.31, .3, -.2 * w); torso.add(ros); // party rosette (10)
+    if (d.costume === 'election') { const sash = new THREE.Mesh(new THREE.TorusGeometry(.5, .05, 6, 24, Math.PI * .9), mat(d.pcol)); sash.position.set(.02, .1, 0); sash.rotation.set(0, Math.PI / 2, .7); torso.add(sash); }
 
     // skinned two-bone limbs: shoulder/elbow and hip/knee bend smoothly (see rig.js)
     const limb = (y, z, r0, r1, len, m) => {
@@ -256,8 +295,10 @@ class Fighter {
     };
     const sleeve = (y, z) => {
       const piv = limb(y, z, .13, .11, .6, suit);
-      const hand = new THREE.Group(); hand.scale.setScalar(1.25); piv.end.add(hand);
-      part(hand, C.cuff, shirt, 0); part(hand, C.hand, skinP, ol / 1.25);
+      const hand = piv.hand = new THREE.Group(); hand.scale.setScalar(1.25); piv.end.add(hand);
+      part(hand, C.cuff, shirt, 0);
+      piv.shapes = {}; // fist, open palm, pointing, thumbs-up, swapped per pose (5)
+      for (const [k, role] of [['fist', 'hand'], ['palm', 'palm'], ['point', 'point'], ['thumb', 'thumb']]) { const src = C[role] ?? C.hand; piv.shapes[k] = part(hand, src, skinP, ol / 1.25); piv.shapes[k].visible = k === 'fist'; }
       return piv;
     };
     const leg = z => {
@@ -267,10 +308,24 @@ class Fighter {
       return piv;
     };
     const az = .5 * w + .03;
-    this.armF = sleeve(1.84, az); this.armB = sleeve(1.84, -az);
+    this.armF = sleeve(1.84, az * S.shoulders); this.armB = sleeve(1.84, -az * S.shoulders);
+    this.hands = this.armF.shapes;
     this.legF = leg(.21 * w); this.legB = leg(-.21 * w);
     this.addProp();
+    // signature prop (7)
+    const sp = signatureProp(this, mat);
+    if (sp) { const mount = { wristB:this.armB.end, handF:this.armF.hand, handB:this.armB.hand, chest:torso, lapel:torso }[sp.mount];
+      if (sp.mount === 'chest') sp.g.position.set(.31, .14, .22 * w); if (sp.mount === 'lapel') sp.g.position.set(.31, .34, .16 * w);
+      mount.add(sp.g); this.sigProp = sp; }
+    // rim light: party colour blended with the arena sky (13, 73)
+    const sky = stage?.sky?.[1] ? new THREE.Color(stage.sky[1]).getHex() : 0xffffff, rc = rimColor(d.pcol, sky);
+    for (const m of this.mats) if (!m.transparent) withRim(m, rc);
+    // soft contact shadow on the ground (72)
+    this.contact = contactShadow(); this.contact.userData.contact = this; this.root.add(this.contact);
+    this.glow = glowSprite(new THREE.Color(d.pcol).lerp(new THREE.Color(0xffd23f), .5), 4.5); this.glow.position.y = 1.6; this.glow.visible = false; this.root.add(this.glow);
   }
+  setWear(level) { if (!this.faces || this.wear === level) return; this.wear = level; const k = Object.keys(this.faces).find(m => this.faces[m] === this.faceMat.map) ?? 'n'; this.faces = faceSet(this.def, level); this.faceMat.map = this.faces[k]; }
+  speak(text) { speak(this, text); }
   addExtras(H) {
     const d = this.def;
     this.crown = new THREE.Group(); this.crown.position.y = d.hat ? 1.0 : .62; H.add(this.crown);
@@ -282,7 +337,7 @@ class Fighter {
   }
   addProp() {
     if (this.def.prop === 'gavel') {
-      const gv = new THREE.Group(); if (this.armF.end) { gv.position.y = -.14; this.armF.end.add(gv); } else { gv.position.set(0, -.74, 0); this.armF.add(gv); }
+      const gv = new THREE.Group(); gv.userData.signature = 'gavel'; if (this.armF.end) { gv.position.y = -.14; this.armF.end.add(gv); } else { gv.position.set(0, -.74, 0); this.armF.add(gv); }
       const wood = this.M(0x6b3e1e);
       const hd = this.mesh(new THREE.CylinderGeometry(.04, .04, .7, 8), wood, .02); hd.rotation.z = Math.PI / 2; hd.position.x = .3; gv.add(hd);
       const gh = this.mesh(new THREE.CylinderGeometry(.13, .13, .42, 14), wood, .025); gh.position.x = .65; gv.add(gh);
@@ -657,6 +712,19 @@ class Fighter {
     if (this.faces) {
       const tx = this.faces[['hit', 'stunned', 'ko', 'hole', 'thrown', 'down'].includes(s) ? 'hurt' : mouth > .7 ? 'open' : 'n'];
       if (this.faceMat.map !== tx) this.faceMat.map = tx;
+    }
+    // hands, face, props and wear (5, 7, 14-17, 19)
+    if (this.hands) {
+      const shape = this.handShape = handFor(this);
+      for (const arm of [this.armF, this.armB]) for (const k in arm.shapes) arm.shapes[k].visible = k === (arm === this.armB && shape === 'point' ? 'fist' : shape);
+      if (this.sigProp && PROP_STATES[this.sigProp.g.userData.signature]) this.sigProp.g.visible = PROP_STATES[this.sigProp.g.userData.signature].includes(s);
+      const face = ['hit', 'stunned', 'ko', 'hole', 'thrown', 'down'].includes(s) ? 'hurt' : mouth > .7 ? 'open' : 'n';
+      updateFaceRig(this, this.faceRig, dt, face);
+      const dh = dishevel(this.hp);
+      if (this.tiePivot) { this.tiePivot.scale.y = 1 + dh.tie * .12; this.tiePivot.rotation.x = dh.tie * .35; }
+      if (this.hairPivot) { this.hairPivot.scale.set(1 + dh.hair * .06, 1 + dh.hair * .1, 1 + dh.hair * .06); this.hairPivot.rotation.x = Math.sin(t * 3) * dh.hair * .06; }
+      this.contact.position.y = (.02 - this.y) / Math.max(.01, this.root.scale.y); this.contact.scale.setScalar(Math.max(.4, 1 - this.y * .12));
+      this.glow.visible = (game.cine?.f === this) || (s === 'special' && this.sp?.sup); if (this.glow.visible) this.glow.material.opacity = .5 + Math.sin(t * 20) * .2;
     }
     this.stars.visible = s === 'stunned'; this.stars.rotation.y += dt * 6;
     if (this.crown.visible) this.crown.rotation.y += dt * 1.5;

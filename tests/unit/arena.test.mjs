@@ -117,3 +117,12 @@ test('each arena has its own ambient sound bed', () => {
   assert.ok(A.ARENA_META.chamber.ambience.includes('murmur'));
   for (const m of Object.values(A.ARENA_META)) for (const a of m.ambience) assert.ok(A.AMBIENCES.includes(a), `unknown ambience ${a}`);
 });
+
+// ---- 74: shadow colour by arena and time of day --------------------------------------------------------
+test('shadows take on the colour of the place and the hour', () => {
+  const day = A.shadowTintFor('beehive', 'day'), sunset = A.shadowTintFor('beehive', 'sunset'), night = A.shadowTintFor('beehive', 'night');
+  for (const c of [day, sunset, night]) assert.ok(Number.isInteger(c) && c >= 0 && c <= 0xffffff);
+  assert.ok((night & 255) > (night >> 16 & 255), 'night shadows are blue');
+  assert.notEqual(day, sunset);
+  assert.notEqual(A.shadowTintFor('octagon', 'day'), A.shadowTintFor('taupo', 'day'), 'Dunedin cool, Taupo warm');
+});

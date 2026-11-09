@@ -3,26 +3,26 @@
 Ranked roughly by impact within each section. ★ = biggest bang for the buck. [x] = done (with tests).
 
 ## Characters: look & caricature
-1. [ ] ★ Hand-painted face textures per politician (artist or AI-assisted), replacing the procedurally drawn ones
-2. [ ] ★ Painted hair textures with strand clumps and ink strokes instead of plain toon-shaded hair shells
-3. [ ] ★ Bigger-head, smaller-body proportions (head ≈ 1/3 of height) for a stronger caricature read
+1. [x] ★ Hand-painted face textures per politician (artist or AI-assisted), replacing the procedurally drawn ones
+2. [x] ★ Painted hair textures with strand clumps and ink strokes instead of plain toon-shaded hair shells
+3. [x] ★ Bigger-head, smaller-body proportions (head ≈ 1/3 of height) for a stronger caricature read
 4. [x] Proper skinned, rigged meshes (one mesh, bone weights) so elbows, knees and shoulders bend instead of capsules pivoting
-5. [ ] Sculpted hands with fingers (open palm, fist, point, thumbs-up), swapped per pose
-6. [ ] Suit fabric detail: lapel stitching, pocket squares, button holes, trouser creases painted into textures
-7. [ ] Signature props per fighter: Luxon's pen, Hipkins' Diet Coke, Seymour's leopard-print, Peters' pocket square
-8. [ ] Per-fighter silhouettes: Brownlee wider, Seymour shorter and wirier, Swarbrick slimmer, Luxon taller
-9. [ ] Alternate costumes (press-conference, campaign hi-vis, beach, election-night) selectable on the select screen
-10. [ ] Party-coloured rosettes / lapel pins on every fighter
+5. [x] Sculpted hands with fingers (open palm, fist, point, thumbs-up), swapped per pose
+6. [x] Suit fabric detail: lapel stitching, pocket squares, button holes, trouser creases painted into textures
+7. [x] Signature props per fighter: Luxon's pen, Hipkins' Diet Coke, Seymour's leopard-print, Peters' pocket square
+8. [x] Per-fighter silhouettes: Brownlee wider, Seymour shorter and wirier, Swarbrick slimmer, Luxon taller
+9. [x] Alternate costumes (press-conference, campaign hi-vis, beach, election-night) selectable on the select screen
+10. [x] Party-coloured rosettes / lapel pins on every fighter
 11. [x] Shoes with laces, heels and soles that flex with the walk cycle
-12. [ ] Skin tone shading ramp tuned per fighter (warm shadow colours instead of grey)
-13. [ ] Subtle rim light per fighter in their party colour
-14. [ ] Eye whites and highlights that track the opponent (look-at on the painted eyes)
-15. [ ] Eyebrow animation as a separate decal layer (raise, furrow, waggle)
-16. [ ] Lip-sync mouth shapes (5–6 visemes) driven by the catch-phrase text
-17. [ ] Sweat drops, blush and "veins" decals when hurt or angry
-18. [ ] Bruise / plaster / black-eye decals that accumulate across rounds
-19. [ ] Torn tie, loosened collar and rumpled hair when HP is low
-20. [ ] Victory outfits: confetti-covered, crown, champagne-soaked
+12. [x] Skin tone shading ramp tuned per fighter (warm shadow colours instead of grey)
+13. [x] Subtle rim light per fighter in their party colour
+14. [x] Eye whites and highlights that track the opponent (look-at on the painted eyes)
+15. [x] Eyebrow animation as a separate decal layer (raise, furrow, waggle)
+16. [x] Lip-sync mouth shapes (5–6 visemes) driven by the catch-phrase text
+17. [x] Sweat drops, blush and "veins" decals when hurt or angry
+18. [x] Bruise / plaster / black-eye decals that accumulate across rounds
+19. [x] Torn tie, loosened collar and rumpled hair when HP is low
+20. [x] Victory outfits: confetti-covered, crown, champagne-soaked
 
 ## Animation & movement
 21. [x] ★ Proper keyframed or mocapped animation sets (idle, walk, run, jump, crouch, block, hit, KO, taunt), e.g. Mixamo
@@ -81,14 +81,14 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 70. [x] Arena-specific ambient audio (gulls, trams, wind, cicadas)
 
 ## Lighting & rendering
-71. [ ] Soft cel ramps with warm shadows and cool highlights (custom toon shader)
-72. [ ] Contact shadows / ambient occlusion under feet
-73. [ ] Character rim lighting from the backdrop's sky colour
-74. [ ] Shadow colour tinted by the arena (purple at sunset, blue in the shade)
-75. [ ] Light bloom on super-move effects only
-76. [ ] Depth-of-field blur on the backdrop during cinematics
-77. [ ] Colour grading LUT per arena
-78. [ ] MSAA / FXAA tuned so outlines stay crisp on high-DPI screens
+71. [x] Soft cel ramps with warm shadows and cool highlights (custom toon shader)
+72. [x] Contact shadows / ambient occlusion under feet
+73. [x] Character rim lighting from the backdrop's sky colour
+74. [x] Shadow colour tinted by the arena (purple at sunset, blue in the shade)
+75. [x] Light bloom on super-move effects only
+76. [x] Depth-of-field blur on the backdrop during cinematics
+77. [x] Colour grading LUT per arena
+78. [x] MSAA / FXAA tuned so outlines stay crisp on high-DPI screens
 79. [x] Dynamic lighting flashes (camera flashes from the press pack)
 80. [x] Higher-resolution backdrops on desktop, lower on mobile
 
@@ -115,3 +115,15 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 98. [x] Input-reactive animation (cancelling, buffering) so movement feels snappy
 99. [x] Footsies spacing: walk-speed curves and dash momentum
 100. [ ] Training mode with hitbox visualisation for tuning animation timing
+
+## Notes on what "done" means here
+
+Items 97 (rumble) and 100 (training mode) were left out by request. Everything else is implemented and covered by unit tests (`tests/unit`) and/or end-to-end tests in headless Chrome (`tests/e2e`). A few items are done in a different way from how they're worded:
+
+- **1, 2, 56 ("hand-painted"):** the faces, hair and panoramas are painted procedurally in code (Canvas 2D), not by an illustrator. A human artist's textures would still be the biggest single upgrade.
+- **4 (rigged skinned meshes):** sleeves and trouser legs are skinned two-bone meshes. The torso and head are rigid parts on the rig.
+- **21 (mocap):** keyframed procedural animation (`src/anim.js`), not motion capture.
+- **38 (foot IK):** the walk cycle is driven by distance travelled, so feet don't slide. It isn't full inverse kinematics.
+- **49, 75 (post effects, bloom):** a custom print pass plus additive glow sprites on supers, rather than a full bloom pipeline.
+- **66 (cameos):** generic background figures (press, protesters, tourists…). Deliberately not real people.
+- **68 (more arenas):** the Debating Chamber, Aoraki / Mount Cook, Cuba Street, Ponsonby Road and a Select Committee room. Hobbiton was skipped because it's a trademarked film set.
