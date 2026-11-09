@@ -26,7 +26,7 @@ test('rounds open on comic panel borders (50)', async () => {
 
 test('halftone lives in the shadows now, and the print pass is on (47, 49)', async () => {
   assert.equal(await page.eval(`getComputedStyle(document.querySelector('#halftone')).display`), 'none', 'the full-screen dot overlay should be gone');
-  assert.ok(await P(`(() => { let n = 0; sc.traverse(o => { if (o.material?.customProgramCacheKey?.() === 'halftone') n++; }); return n; })()`) > 20, 'toon materials lack halftone');
+  assert.ok(await P(`(() => { let n = 0; sc.traverse(o => { if (/^halftone/.test(o.material?.customProgramCacheKey?.() ?? '')) n++; }); return n; })()`) > 20, 'toon materials lack halftone');
   assert.ok(await page.eval(`__bb.post?.enabled === true`), 'print pass not running');
 });
 

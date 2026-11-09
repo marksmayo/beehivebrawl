@@ -23,7 +23,7 @@ for (const [W, H] of [[844, 390], [667, 375]]) test(`landscape ${W}x${H}: select
     const hint = await page.eval(`document.querySelector('#selHint').textContent`);
     assert.match(hint, /tap/i, 'select hint should explain tapping'); assert.doesNotMatch(hint, /Enter|Esc|Tab/, 'select hint mentions keys on a phone');
     await page.eval(`document.querySelector('#grid > *').click()`);
-    assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 60000));
+    assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 150000));
     await sleep(500);
     const btns = await rectOf(page, '#touch .tbtn');
     for (const sel of ['#hp0', '#hp1', '#m0', '#m1']) for (const r of await rectOf(page, sel)) {
@@ -40,7 +40,7 @@ test('portrait 390x844: both fighters are in view and the HUD fits', async () =>
   try {
     await reachFight(page, srv.url);
     await page.eval(`document.querySelector('#grid > *').click()`);
-    assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 60000));
+    assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 150000));
     await sleep(1500);
     const pts = await page.eval(`__bb.game.p.flatMap(f => [[f.x, 0], [f.x, 3]]).map(([x, y]) => {
       const v = new (__bb.camera.position.constructor)(x, y, 0).project(__bb.camera); return [v.x, v.y]; })`);

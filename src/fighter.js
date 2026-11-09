@@ -71,7 +71,9 @@ function paintFace(d, mode, wear = 0) {
   };
   const sh = shade(hex(d.skin), -.28), hl = shade(hex(d.skin), .35);
   // painterly mottling: soft blotches of warmer and cooler skin so it reads as painted, not filled
-  for (let i = 0; i < 220; i++) soft(p.r(30, S - 30), p.r(30, S - 30), p.r(8, 30), p.r(6, 24), p.r() < .5 ? shade(hex(d.skin), p.r(-.3, -.08)) : p.r() < .5 ? shade(hex(d.skin), p.r(.08, .25)) : shade('#e8806a', p.r(-.1, .1)), .22);
+  for (let i = 0; i < 220; i++) soft(p.r(30, S - 30), p.r(30, S - 30), p.r(8, 30), p.r(6, 24), p.r() < .5 ? shade(hex(d.skin), p.r(-.3, -.08)) : p.r() < .5 ? shade(hex(d.skin), p.r(.08, .25)) : shade('#e8806a', p.r(-.1, .1)), .3);
+  for (let i = 0; i < 160; i++) soft(p.r(40, S - 40), p.r(40, S - 40), p.r(3, 9), p.r(2, 7), shade(hex(d.skin), p.r(-.4, .3)), .45); // small brush dabs
+  for (let i = 0; i < 70; i++) soft(p.r(30, S - 30), p.r(30, S - 30), p.r(18, 50), p.r(14, 40), ['#7d8fc0', '#c9a24a', '#b8506a', '#6f9a7a'][i % 4], .14); // cool, ochre, rose and green undertones
   for (const s of [-1, 1]) { soft(cx + s * 110, Y(-.08), 46, 30, sh, .35); soft(cx + s * 86, ey - 30, 52, 16, sh, .3); soft(cx + s * 70, Y(.3), 60, 26, hl, .25); }
   soft(cx + 20, Y(-.02), 12, 46, sh, .35); soft(cx - 8, Y(-.06), 10, 30, hl, .4); soft(cx, Y(-.5), 90, 22, sh, .4);
   if (FACES[d.id]?.stubble) { g.save(); g.globalAlpha = .22; g.fillStyle = shade(hex(d.skin), -.5); // stubble stipple

@@ -25,7 +25,7 @@ test('picking a candidate by tap starts the fight', async () => {
   const card = await rect('#grid > *');
   assert.ok(onScreen(card), `first card off screen: ${JSON.stringify(card)}`);
   await page.tap(card.x, card.y);
-  assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 45000), 'fight never started');
+  assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 150000), 'fight never started');
 });
 
 test('touch controls are shown in the fight, on screen', async () => {

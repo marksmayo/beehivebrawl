@@ -19,7 +19,7 @@ after(() => { page?.close(); srv?.close(); });
 test('built fighters: big heads, distinct silhouettes, rosettes, signature props, fabrics (3, 6, 7, 8, 10)', async () => {
   const info = await P(`['luxon', 'hipkins', 'peters', 'brownlee'].map(id => { const f = mk(id); const r = f.root;
     return { id, head:f.head.scale.x, torso:f.torso.scale.toArray(), rosette:!!${find('r', 'o.userData.rosette')}, sig:${find('r', 'o.userData.signature')}?.userData.signature,
-      jacket:${find('r', "o.userData.role === 'jacket'")}?.material.customProgramCacheKey() }; })`);
+      jacket:${find('r', "o.userData.role === 'jacket'")}?.material.userData.pattern }; })`);
   for (const f of info) { assert.ok(f.head > 1, `${f.id} head not enlarged`); assert.ok(f.rosette, `${f.id} has no rosette`); assert.ok(f.sig, `${f.id} has no signature prop`); }
   assert.equal(info.find(f => f.id === 'hipkins').sig, 'can');
   assert.match(info.find(f => f.id === 'peters').jacket, /pinstripe/);

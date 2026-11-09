@@ -51,7 +51,7 @@ const FABRIC = PATTERN_IDS.slice(0, 5).map((k, i) => `${i ? 'else ' : ''}if (uPa
 function withPattern(m, kind) {
   if (!kind || !PATTERNS[kind]) return m;
   const prev = m.onBeforeCompile, key = m.customProgramCacheKey?.() ?? '', uvs = kind === 'crease';
-  const uPat = { value:PATTERN_IDS.indexOf(kind) };
+  const uPat = { value:PATTERN_IDS.indexOf(kind) }; m.userData.pattern = kind;
   m.onBeforeCompile = sh => {
     prev?.call(m, sh); sh.uniforms.uPat = uPat;
     const vary = `varying vec3 vPat;\n${uvs ? 'varying vec2 vUvPat;\n' : ''}`;
