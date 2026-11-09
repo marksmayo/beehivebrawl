@@ -6,6 +6,7 @@ import { updateFx } from './effects.js';
 import { game, nextRoundOrResult, timeUp, toTitle } from './game.js';
 import { EMPTY, ctrlFor, padBuf, pollPads, pressed } from './input.js';
 import { camera, renderer, scene } from './renderer.js';
+import { touchFrame, updateTouchUI } from './touchui.js';
 import { $, BOUND, MAXSEP, clamp, damp, pick, rand } from './util.js';
 
 // Camera / HUD / main loop
@@ -71,9 +72,9 @@ let last = performance.now(), clock = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = clamp((now - last) / 1000, 0, .05); last = now; clock += dt; // never negative: damp() would diverge
-  pollPads();
+  pollPads(); touchFrame();
   if (game.phase !== 'paused') tick(dt);
-  updateCamera(dt); updateFloaters(dt);
+  updateCamera(dt); updateFloaters(dt); updateTouchUI();
   renderer.render(scene, camera);
 }
 function tick(dt) {

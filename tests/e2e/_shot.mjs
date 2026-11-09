@@ -1,0 +1,13 @@
+import { writeFileSync } from 'node:fs';
+import { serve, browser, sleep } from './harness.mjs';
+const [W, H, out] = [+process.argv[2], +process.argv[3], process.argv[4]];
+const srv = await serve(), page = await browser({ width:W, height:H, mobile:true });
+await page.goto(srv.url + '?test'); await page.waitFor(`window.__bb?.game.phase === 'title'`);
+writeFileSync(out + '-title.png', await page.shot());
+await page.eval(`document.querySelector('[data-mode="cpu"]').click()`); await sleep(1500);
+writeFileSync(out + '-select.png', await page.shot());
+await page.eval(`document.querySelector('#grid > *').click()`);
+await page.waitFor(`__bb.game.phase === 'fight'`, 60000);
+await page.touch('touchStart', [{ x:120, y:H - 110, id:1 }]); await page.touch('touchMove', [{ x:160, y:H - 110, id:1 }]); await sleep(500);
+writeFileSync(out + '-fight.png', await page.shot());
+page.close(); srv.close(); process.exit(0);

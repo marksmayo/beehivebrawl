@@ -1,5 +1,6 @@
 import { AI } from './ai.js';
 import { STAGES, buildStage, stage } from './arenas.js';
+import { isTouch } from './touchui.js';
 import { audioInit, muted, say, setMuted, setVoicesOn, sfx, voicesOn } from './audio.js';
 import { banner, bubble, clearFloaters, floater, hideBanner, screenFlash } from './dom.js';
 import { clearFx } from './effects.js';
@@ -51,7 +52,7 @@ function showScreen(id) {
   for (const s of ['title', 'select', 'pause', 'result']) $('#' + s).classList.toggle('hidden', s !== id);
   const hud = id === null || id === 'pause';
   $('#hud').classList.toggle('on', hud); $('#meters').classList.toggle('on', hud);
-  $('#soundHint').style.display = hud ? 'block' : 'none';
+  $('#soundHint').classList.toggle('on', hud);
 }
 
 function toTitle() {
@@ -73,7 +74,8 @@ function toSelect(mode) {
   setFighters(ROSTER[game.sel[0]], ROSTER[game.sel[1]]);
   game.p[0].x = -2.2; game.p[1].x = 2.2;
   renderGrid(); showScreen('select'); updateVenue();
-  $('#selHint').innerHTML = game.mode === 'cpu'
+  $('#selHint').innerHTML = isTouch() ? 'Tap a candidate to pick · ◀ ▶ to change venue'
+    : game.mode === 'cpu'
     ? 'Move <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> · Confirm <kbd>Enter</kbd>/<kbd>J</kbd> · Change venue <kbd>Tab</kbd> · Back <kbd>Esc</kbd> · or just click'
     : 'P1: <kbd>WASD</kbd> + <kbd>F</kbd> · P2: arrows + <kbd>Enter</kbd>/<kbd>Num1</kbd> · Venue <kbd>Tab</kbd> · Back <kbd>Esc</kbd>';
 }

@@ -1,4 +1,5 @@
 import { audioInit } from './audio.js';
+import { touchPad, touchPresses } from './touchui.js';
 import { game, menuKey, rematch, selBack, selConfirm, selNav, toSelect, togglePause } from './game.js';
 
 // Input (keyboard + gamepad)
@@ -21,6 +22,11 @@ function ctrlFor(i) {
   for (const k in b) c[k] = HELD.includes(k) ? b[k].some(x => keys.has(x)) : b[k].some(x => pressed.has(x));
   const pi = game.mode === 'cpu' ? 0 : i, p = padState[pi];
   if (p) { for (const k of HELD) c[k] = c[k] || p[k]; for (const k of ['punch', 'kick', 'spA', 'spB', 'sup']) c[k] = c[k] || padBuf[pi][k]; }
+  if (i === 0) { // on-screen touch controls drive player 1
+    const t = touchPad.held(), tp = touchPresses();
+    for (const k of HELD) c[k] = c[k] || t[k];
+    for (const k of ['punch', 'kick', 'spA', 'spB', 'sup']) c[k] = c[k] || !!tp[k];
+  }
   return c;
 }
 addEventListener('keydown', e => {

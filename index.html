@@ -16,6 +16,24 @@
   button { font:inherit; cursor:pointer; }
 
   /* comic overlays */
+  /* on-screen touch controls (src/touchui.js) */
+  #touch { position:fixed; inset:0; z-index:30; display:none; touch-action:none; user-select:none; -webkit-user-select:none; }
+  #touch.on { display:block; }
+  #touch .tbtn { position:absolute; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:Bangers, Impact, sans-serif; letter-spacing:1px; color:#fff; -webkit-text-stroke:1.5px #111; paint-order:stroke fill;
+    border:4px solid #111; box-shadow:4px 5px 0 #111; background:radial-gradient(circle at 35% 30%, #ffe680, #ffc400 60%, #d99a00);
+    opacity:.82; transition:transform .05s; }
+  #touch .tbtn.down { transform:translate(3px, 4px); box-shadow:1px 1px 0 #111; opacity:1; filter:brightness(1.15); }
+  #touch .t-punch { background:radial-gradient(circle at 35% 30%, #ff8a7a, #e8232f 60%, #a3101a); }
+  #touch .t-kick { background:radial-gradient(circle at 35% 30%, #8fd0ff, #2a7fd6 60%, #164f94); }
+  #touch .t-spA, #touch .t-spB { background:radial-gradient(circle at 35% 30%, #a6f0a0, #2d9b3a 60%, #1b6424); }
+  #touch .t-sup { background:radial-gradient(circle at 35% 30%, #fff3b0, #ffd23f 55%, #ff8a00); }
+  #touch .t-pause { background:#fff; color:#111; -webkit-text-stroke:0; font-family:Inter, sans-serif; font-weight:900;
+    border-width:3px; box-shadow:2px 3px 0 #111; opacity:.7; }
+  #touch .stick { position:absolute; left:0; top:0; border-radius:50%; border:4px dashed rgba(17, 17, 17, .55); background:rgba(255, 255, 255, .18); opacity:.65; }
+  #touch .stick.active { opacity:.95; border-style:solid; }
+  #touch .knob { position:absolute; left:27.5%; top:27.5%; border-radius:50%; border:4px solid #111; box-shadow:3px 4px 0 #111;
+    background:radial-gradient(circle at 35% 30%, #fff, #d8d8d8); }
   #halftone { position:fixed; inset:0; pointer-events:none; mix-blend-mode:multiply; opacity:.07;
     background-image:radial-gradient(rgba(0,0,0,.55) 1px, transparent 1.6px); background-size:6px 6px; }
   #vignette { position:fixed; inset:0; pointer-events:none; box-shadow:inset 0 0 0 6px #000, inset 0 0 120px rgba(0,0,0,.55); }
@@ -66,7 +84,8 @@
   .meter.full .mlabel { color:var(--gold); }
   .meter.r { text-align:right; } .meter.r .mbar { justify-content:flex-end; }
   @keyframes pulse { from{filter:brightness(1)} to{filter:brightness(1.7)} }
-  #soundHint { position:fixed; right:14px; bottom:46px; font-size:11px; opacity:.65; pointer-events:none; text-shadow:1px 1px 0 #000; }
+  #soundHint { position:fixed; right:14px; bottom:46px; font-size:11px; opacity:.65; pointer-events:none; text-shadow:1px 1px 0 #000; display:none; }
+  #soundHint.on { display:block; }
 
   /* banners */
   #banner { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; text-align:center; }
@@ -170,6 +189,33 @@
     .selrow { grid-template-columns:1fr; }
     .info.r { text-align:left; }
     .pname { font-size:20px; } .pimg { width:46px; height:46px; }
+  }
+  /* touch devices (body.touchdev, set by touchui.js): keep the bottom of the screen for thumbs */
+  body.touchdev #soundHint { display:none; }
+  body.touchdev #meters { top:calc(var(--hudH, 96px)); bottom:auto; }
+  body.touchdev .meter .mlabel { font-size:12px; margin-bottom:2px; }
+  body.touchdev .meter .mbar { height:10px; }
+  /* phones in landscape: compact select screen and HUD */
+  @media (max-height:520px) {
+    #select { gap:4px; padding-top:4px; padding-bottom:4px; }
+    #select h2 { font-size:24px; text-shadow:3px 3px 0 #000; }
+    #grid { grid-template-columns:repeat(8,minmax(0,1fr)); gap:6px; max-width:none; }
+    .card .cn { font-size:12px; padding:2px 4px 3px; } .card .cp { display:none; } .card .stripe { height:4px; }
+    .selrow { grid-template-columns:1fr auto 1fr; gap:8px; margin-top:4px; }
+    .info { min-height:0; padding:4px 8px; box-shadow:4px 4px 0 #000; } .info .in { font-size:18px; }
+    .info .ib, .info .mv, .info .stat, .info .ik { display:none; }
+    .venueBox { padding:3px 8px; } .venueBox .vd { display:none; } .venueBox .vn { font-size:15px; }
+    #hud { padding:8px 12px; gap:8px; } .pimg { width:40px; height:40px; } .pname { font-size:18px; }
+    .bar { height:16px; } .pips { gap:4px; } .pip { width:10px; height:10px; }
+    #timer { font-size:40px; } #timerBox { min-width:64px; }
+    body.touchdev #meters { top:76px; left:12px; right:12px; } .meter { width:30vw; }
+  }
+  /* portrait phones: stack the HUD tighter */
+  @media (max-width:600px) and (orientation:portrait) {
+    #hud { padding:10px 8px; gap:6px; } .pimg { width:34px; height:34px; } .pname { font-size:16px; }
+    .pparty, .tag { display:none; } #timer { font-size:38px; } #timerBox { min-width:48px; } #venue { display:none; }
+    .bar { height:14px; } .pip { width:9px; height:9px; }
+    body.touchdev #meters { top:70px; left:8px; right:8px; } .meter { width:42vw; }
   }
 </style>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -278,5 +324,15 @@
 </div>
 
 <script type="module" src="src/main.js"></script>
+<script>
+  // Browsers won't load ES modules from file://, so say how to run it instead of looking dead.
+  if (location.protocol === 'file:') document.body.insertAdjacentHTML('beforeend',
+    '<div id="fileNotice" style="position:fixed;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;background:#0b0d12ee;color:#fff;font:16px/1.5 Inter,sans-serif;text-align:center;padding:24px">' +
+    '<div style="max-width:520px;background:#fff8e6;color:#111;border:4px solid #000;box-shadow:8px 8px 0 #000;padding:22px 26px">' +
+    '<div style="font:40px Bangers,Impact,sans-serif;color:#e0141e">ORDER! ORDER!</div>' +
+    '<p>Beehive Brawl can\'t run straight from a file. Serve the folder instead:</p>' +
+    '<p><code style="background:#111;color:#ffd23f;padding:4px 8px">npm run serve</code> (or <code>python -m http.server 8765</code>)<br>then open <b>http://localhost:8765</b></p>' +
+    '<p>Or play online at <a href="https://beehivebrawl.vercel.app">beehivebrawl.vercel.app</a></p></div></div>');
+</script>
 </body>
 </html>

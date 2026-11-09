@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { fovForAspect } from './camerafit.js';
 
 // Renderer / scene
 
@@ -10,11 +11,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, .1, 600);
+const camera = new THREE.PerspectiveCamera(fovForAspect(innerWidth / innerHeight), innerWidth / innerHeight, .1, 600);
 camera.position.set(0, 3.2, 10);
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  camera.aspect = innerWidth / innerHeight; camera.fov = fovForAspect(camera.aspect); camera.updateProjectionMatrix();
 });
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 1.4); scene.add(hemi);

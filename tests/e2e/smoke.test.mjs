@@ -27,10 +27,20 @@ test('a CPU match starts and renders the arena and fighters', async () => {
 });
 
 test('fighters can attack during the fight', async () => {
-  assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 15000));
+  assert.ok(await page.waitFor(`__bb.game.phase === 'fight'`, 30000), `not fighting: ${await page.eval('__bb.game.phase')}`);
+  const x0 = await page.eval(`__bb.game.p[0].x`);
   await page.key('KeyD', 1400); // walk in
-  for (let i = 0; i < 12; i++) await page.key(['KeyJ', 'KeyK'][i % 2]);
-  const st = await page.eval(`__bb.game.p.map(f => f.hp + f.meter)`);
-  assert.ok(st.some(x => x !== 100), 'nothing happened in the fight');
+  assert.ok(await page.eval(`__bb.game.p[0].x`) > x0, 'D did not walk right');
+  await page.eval(`__bb.seen = new Set(); (function watch() { const f = __bb.game.p[0]; if (f.atk) __bb.seen.add(f.atk.type); requestAnimationFrame(watch); })()`);
+  await page.key('KeyJ', 120);
+  assert.ok(await page.waitFor(`__bb.seen.has('punch')`, 4000), 'J did not punch');
+  // headless software rendering runs at a few fps, so wait until the punch (or any hit-stun) is over
+  for (let i = 0; i < 4 && !(await page.eval(`__bb.seen.has('kick')`)); i++) {
+    await page.waitFor(`['idle', 'walk'].includes(__bb.game.p[0].state)`, 15000);
+    await page.key('KeyK', 150);
+    await page.waitFor(`__bb.seen.has('kick')`, 4000);
+  }
+  assert.ok(await page.eval(`__bb.seen.has('kick')`), 'K did not kick');
+  assert.equal(await page.eval(`getComputedStyle(document.querySelector('#touch')).display`), 'none', 'touch controls showing on desktop');
   assert.deepEqual(page.errors, []);
 });
