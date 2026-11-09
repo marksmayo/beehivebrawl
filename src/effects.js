@@ -6,6 +6,7 @@ import { game } from './game.js';
 import { BOX, CYL, disposeObj, outline, sign, toon } from './kit.js';
 import { scene } from './renderer.js';
 import { pick, rand } from './util.js';
+import { flames } from './comicfx.js';
 
 // Effects system (projectiles, particles, supers)
 
@@ -222,6 +223,7 @@ function fxEruption(owner, tx) {
         const o = owner.opp;
         if (Math.abs(o.x - tx) < 1.6 && o.y < 2) applyHit(owner, o, { dmg:24, knock:2, launch:12, stun:.9, chip:.3, heavy:true, super:true });
       }
+      if (fired && t < 1.3 && Math.random() < dt * 40) flames(tx, .4, 0, { n:2, size:.9, rise:3.2, life:.9, spread:1 });
       if (fired) cones.forEach((c, i) => { const k = t < 1.3 ? 1 : Math.max(0, 1 - (t - 1.3) * 3); c.scale.y = k * (.8 + Math.sin(t * 30 + i) * .25); c.position.y = c.scale.y * .9; });
       return t < 1.7;
     },

@@ -35,7 +35,7 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 28. [x] Run / dash with lean and dust trail
 29. [x] Double-jump / air-dash flips with squash and stretch
 30. [x] Throws and grabs (lapel grab, headlock, the "fiscal hug")
-31. [ ] Super-move cinematics with camera cuts, freeze-frame and character close-up
+31. [x] Super-move cinematics with camera cuts, freeze-frame and character close-up
 32. [x] Taunt button with voiced catch-phrase and unique gesture
 33. [x] Round-start intros per character (Peters strides in waving, Luxon steps off a plane)
 34. [x] Victory poses (2–3 per character) and loser reactions
@@ -47,21 +47,21 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 40. [x] Blocking stance that changes with high/low guard
 
 ## Effects & comic style
-41. [ ] ★ Hand-drawn impact frames (black/white inverted flash panel) on supers and KOs
-42. [ ] ★ Comic onomatopoeia with hand-lettered fonts and per-hit colour, popping in 3D space
-43. [ ] Speed-line backgrounds during dashes and supers
-44. [ ] Ink-splat hit sparks instead of particles
-45. [ ] Dust clouds, debris and paper (policy documents!) flying on heavy hits
-46. [ ] Stylised smoke and fire for Seymour's bonfire, Ngāuruhoe and the DC-3
-47. [ ] Screen-space halftone shading in the shadows only (not overlaid on everything)
-48. [ ] Variable-width ink outlines (thicker at silhouette, thinner inside) via a post-process edge pass
-49. [ ] Paper-grain / print-misregistration post filter (subtle CMYK offset)
-50. [ ] Comic panel borders and gutters for intros, round transitions and the results screen
-51. [ ] Speech bubbles with tails that follow the speaker, shake when shouting, and pop with a bounce
-52. [ ] KO "stamp" splashed across the screen (VOTE OF NO CONFIDENCE!)
-53. [ ] Combo counter in comic lettering that grows and wobbles
-54. [ ] Super-meter fill with ink-wash animation and sparkle when full
-55. [ ] Portraits that swap expression in the HUD when hit or winning
+41. [x] ★ Hand-drawn impact frames (black/white inverted flash panel) on supers and KOs
+42. [x] ★ Comic onomatopoeia with hand-lettered fonts and per-hit colour, popping in 3D space
+43. [x] Speed-line backgrounds during dashes and supers
+44. [x] Ink-splat hit sparks instead of particles
+45. [x] Dust clouds, debris and paper (policy documents!) flying on heavy hits
+46. [x] Stylised smoke and fire for Seymour's bonfire, Ngāuruhoe and the DC-3
+47. [x] Screen-space halftone shading in the shadows only (not overlaid on everything)
+48. [x] Variable-width ink outlines (thicker at silhouette, thinner inside) via a post-process edge pass
+49. [x] Paper-grain / print-misregistration post filter (subtle CMYK offset)
+50. [x] Comic panel borders and gutters for intros, round transitions and the results screen
+51. [x] Speech bubbles with tails that follow the speaker, shake when shouting, and pop with a bounce
+52. [x] KO "stamp" splashed across the screen (VOTE OF NO CONFIDENCE!)
+53. [x] Combo counter in comic lettering that grows and wobbles
+54. [x] Super-meter fill with ink-wash animation and sparkle when full
+55. [x] Portraits that swap expression in the HUD when hit or winning
 
 ## Arenas & backgrounds
 56. [ ] ★ Hand-painted (or AI-assisted, then retouched) high-res panorama per arena
@@ -105,13 +105,13 @@ Ranked roughly by impact within each section. ★ = biggest bang for the buck. [
 90. [x] Mobile touch controls with comic-button styling
 
 ## Camera & game feel
-91. [ ] ★ Dynamic camera that zooms in on close combos and widens on spread-out fighters, with slight Dutch tilts
+91. [x] ★ Dynamic camera that zooms in on close combos and widens on spread-out fighters, with slight Dutch tilts
 92. [x] Camera shake tuned by hit weight with directional punch
-93. [ ] Slow-motion final KO with zoom and colour desaturation
-94. [ ] Replay of the winning blow from a new angle
-95. [ ] Cinematic camera paths for super moves
-96. [ ] Screen-edge vignette pulse on low health
+93. [x] Slow-motion final KO with zoom and colour desaturation
+94. [x] Replay of the winning blow from a new angle
+95. [x] Cinematic camera paths for super moves
+96. [x] Screen-edge vignette pulse on low health
 97. [ ] Controller rumble synced to hits
-98. [ ] Input-reactive animation (cancelling, buffering) so movement feels snappy
+98. [x] Input-reactive animation (cancelling, buffering) so movement feels snappy
 99. [x] Footsies spacing: walk-speed curves and dash momentum
 100. [ ] Training mode with hitbox visualisation for tuning animation timing

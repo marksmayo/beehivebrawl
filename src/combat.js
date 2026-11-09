@@ -3,6 +3,7 @@ import { banner, bubble, floater, screenFlash, sfxWord } from './dom.js';
 import { impactStar, sparks } from './effects.js';
 import { game } from './game.js';
 import { blocks, hitHeight, impactFeel } from './anim.js';
+import { debris, impactFrame, splat, word3d } from './comicfx.js';
 
 // Combat resolution
 
@@ -21,7 +22,6 @@ function applyHit(att, tgt, o) {
   } else {
     const comboing = tgt.state === 'hit' || tgt.state === 'stunned';
     tgt.combo = comboing ? tgt.combo + 1 : 1;
-    if (tgt.combo >= 3 && !o.quiet) floater(`${tgt.combo} HIT COMBO!`, att.x, 3.4, { color:'#ffd23f', size:26, life:.8 });
     if (tgt.state === 'special' || tgt.state === 'attack') tgt.cleanupSpecial();
     tgt.state = o.stunned ? 'stunned' : 'hit'; tgt.stateT = 0; tgt.stunDur = o.stun ?? .35; tgt.atk = null; tgt.sp = null;
     tgt.vx = dir * (o.knock ?? 3);
@@ -31,9 +31,13 @@ function applyHit(att, tgt, o) {
     tgt.flash = .08; tgt.squash = o.heavy ? -.18 : -.1;
     sparks(hx, hy, o.heavy ? 0xffd23f : 0xffffff, o.heavy ? 16 : 9, o.heavy ? 8 : 6);
     if (!o.quiet) {
+      const kind = o.super ? 'super' : o.kind ?? (o.heavy ? 'special' : 'punch');
       impactStar(hx, hy, o.heavy ? 0xffd23f : 0xffffff, o.heavy ? 1.1 : .7);
+      splat(hx, hy, o.heavy ? 0xffd23f : 0xffffff, o.heavy ? .95 : .65); // ink splat (44)
       if (o.word) floater(o.word, hx, hy + .4, { cls:'sfx', size:34, life:.6, rise:.5 }).pop = true;
-      else if (o.heavy || Math.random() < .45) sfxWord(hx, hy, o.heavy);
+      else word3d(hx, hy, kind, o.heavy); // hand-lettered sound effect in the scene (42)
+      debris(hx, hy, kind, dir); // paperwork flies on heavy hits (45)
+      if (o.super || o.kind === 'throw') impactFrame(o.super ? 'super' : 'throw'); // impact frame (41)
     }
     // hit-stop, camera punch-in and a shake along the hit, all scaled by the blow (37, 92)
     const feel = impactFeel(o.super ? 'super' : o.kind ?? (o.heavy ? 'kick' : 'punch'));

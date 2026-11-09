@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { plume } from './comicfx.js';
 import { game } from './game.js';
 import { BOX, CONE, CYL, SPH, disposeObj, gradTex, sign, skyTex, toon, wavingFlag } from './kit.js';
 import { renderer, scene, sun } from './renderer.js';
@@ -496,7 +497,9 @@ const STAGES = [
         for (const x of [200, 380, 600, 1300, 1500, 3500, 3700, 3900]) p.pine(x, GY - 10, p.r(260, 360));
         p.rect(0, GY - 10, W, 100, '#6f9a48', 0);
       }, { kerb:0xd8c8a0 });
-    } },
+      this.steam = plume(-.8, 7.4, -18, { rate:.35, size:2.2, rise:1.1, life:4, spread:.6 }); // Ngauruhoe steams (46)
+    },
+    tick(dt) { this.steam(dt); } },
 
   { id:'mauao', name:'Summit of Mauao, Mt Maunganui', desc:'252 metres up. Panoramic views. Sheep with opinions.', sky:['#2a8ae6', '#e8f6ff'], fog:0xd8eefb, sun:0xffffff,
     build(g) {

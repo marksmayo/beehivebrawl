@@ -15,6 +15,7 @@ import {
   INTROS, VICTORY, loserPose, smearStretch, Spring, TURN_TIME, turnAngle, wantsGuard, guardPose, ATTACK_HEIGHT,
 } from './anim.js';
 import { skinnedLimb } from './rig.js';
+import { InputBuffer, canCancel } from './camerafx.js';
 
 // Fighter
 
@@ -24,6 +25,7 @@ const ATK = {
 };
 const COOL = { a:2.1, b:2.9 };
 const FLIP_Y = 1.3; // somersault pivot height (hips)
+const ACTS = ['sup', 'spA', 'spB', 'punch', 'kick'];
 const G_CAP = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 14);
 
 // =====================================================================
@@ -123,7 +125,7 @@ class Fighter {
     this.flipG.position.y = FLIP_Y;
     this.build();
     this.wins = 0; this.meter = 0; this.comebackUsed = false; this.opp = null; this.vehicle = null; this.belt = null;
-    this.dash = new DashDetector(); this.cp = { ...GUARD }; this.hairSpring = new Spring(70, 7); this.tieSpring = new Spring(55, 5);
+    this.dash = new DashDetector(); this.ibuf = new InputBuffer(.15); this.cp = { ...GUARD }; this.hairSpring = new Spring(70, 7); this.tieSpring = new Spring(55, 5);
     this.resetRound(side ? 3 : -3);
   }
   M(color, o = {}) { const m = toon(color, o); this.mats.push(m); return m; }
@@ -301,12 +303,18 @@ class Fighter {
   }
   dispose() { this.cleanupSpecial(); scene.remove(this.root); disposeObj(this.root); const b = bubbles.get(this); if (b) { b.el.remove(); bubbles.delete(this); } }
 
-  update(dt, c) {
+  update(dt, ctl) {
+    let c = ctl;
     const o = this.opp, id = this.def.id, spd = SPEED * this.def.stats.speed;
     this.t += dt; this.stateT += dt; this.flash -= dt; this.turnT += dt;
     this.cool.a = Math.max(0, this.cool.a - dt); this.cool.b = Math.max(0, this.cool.b - dt);
     this.blockstun = Math.max(0, this.blockstun - dt);
     const grounded = this.y <= 0 && this.vy <= 0, dashDir = this.dash.feed(c, this.t);
+    for (const a of ACTS) if (c[a]) this.ibuf.press(a, this.t);
+    const freeNow = ['idle', 'walk', 'block'].includes(this.state) ? ACTS : this.state === 'jump' ? ['punch', 'kick'] : null;
+    const want = freeNow ? this.ibuf.take(freeNow, this.t) : null;
+    c = { ...c, punch:false, kick:false, spA:false, spB:false, sup:false };
+    if (want) c[want] = true;
     switch (this.state) {
       case 'idle': case 'walk': case 'block': {
         if (grounded) this.face(o.x >= this.x ? 1 : -1);
@@ -339,7 +347,16 @@ class Fighter {
       case 'jump':
         if (!this.airAtk && (c.punch || c.kick)) { this.airAtk = true; this.flipDir = 0; this.startAttack(c.kick ? 'kick' : 'punch'); }
         break;
-      case 'attack': this.updateAttack(dt); break;
+      case 'attack': {
+        const a = this.atk, d = a.d, ph = a.t < d.s ? 'wind' : a.t < d.s + d.a ? 'strike' : 'recover';
+        const into = a.hit ? this.ibuf.take(['sup', 'spA', 'spB'], this.t) : null;
+        const ok = into && (into !== 'sup' || this.meter >= 100) && (into === 'sup' || this.cool[into === 'spA' ? 'a' : 'b'] <= 0);
+        if (ok && canCancel({ hit:a.hit, phase:ph, t:a.t - d.s - d.a }, into === 'sup' ? 'super' : 'special')) {
+          this.atk = null; floater('CANCEL!', this.x, 3.3, { color:'#8fd3ff', size:22, life:.5 });
+          this.startMove(into === 'sup' ? 's' : into === 'spA' ? 'a' : 'b'); break;
+        }
+        this.updateAttack(dt); break;
+      }
       case 'special': this.updateSpecial(dt); break;
       case 'hit': case 'stunned':
         if (this.launched && grounded && this.stateT > .1) { this.launched = false; this.state = 'down'; this.stateT = 0; this.rollDir = 0; dust(this.x, .5); sfx.thud(); break; }
@@ -388,6 +405,21 @@ class Fighter {
     if (this.state === 'walk') this.walkPh += Math.sign(dx * this.facing) * walkPhase(0, dx, WALK[id] ?? WALK.generic);
     this.animate(dt);
   }
+  rigNodes() {
+    return this._nodes ??= [this.root, this.yaw, this.flipG, this.pose, this.head, this.armF, this.armB, this.legF, this.legB,
+      this.armF.elbow, this.armB.elbow, this.legF.elbow, this.legB.elbow, this.legF.foot, this.legB.foot, this.hairPivot, this.tiePivot].filter(Boolean);
+  }
+  snap() {
+    const out = [];
+    for (const n of this.rigNodes()) out.push(n.position.x, n.position.y, n.position.z, n.rotation.x, n.rotation.y, n.rotation.z, n.scale.x, n.scale.y, n.scale.z);
+    out.push(this.faces ? ['n', 'open', 'hurt'].findIndex(k => this.faces[k] === this.faceMat.map) : 0);
+    return out;
+  }
+  restore(v) {
+    let i = 0;
+    for (const n of this.rigNodes()) { n.position.set(v[i], v[i + 1], v[i + 2]); n.rotation.set(v[i + 3], v[i + 4], v[i + 5]); n.scale.set(v[i + 6], v[i + 7], v[i + 8]); i += 9; }
+    if (this.faces) this.faceMat.map = this.faces[['n', 'open', 'hurt'][Math.max(0, v[i])]];
+  }
   face(f) { if (f !== this.facing) { this.facing = f; this.turnT = 0; } }
   projectileThreat() {
     return effects.some(e => e.isProj && e.owner !== this && Math.abs(e.mesh.position.x - this.x) < 4.5 && Math.sign(this.x - e.mesh.position.x) === e.dir);
@@ -422,7 +454,7 @@ class Fighter {
     if (!a.done && a.t >= d.s && a.t < d.s + d.a) {
       const dx = (o.x - this.x) * this.facing;
       if (dx > -.2 && dx < d.range * this.def.build.h + .35 && Math.abs(o.y - this.y) < 1.7) {
-        a.done = true;
+        a.done = true; a.hit = true;
         applyHit(this, o, { dmg:d.dmg, knock:d.knock, stun:d.stun, heavy:a.type === 'kick', hy:a.type === 'kick' ? 1.3 : 1.9, kind:a.type, height:this.y > .05 ? 'high' : ATTACK_HEIGHT[a.type] });
       }
     }

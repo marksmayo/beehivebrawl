@@ -19,11 +19,14 @@ function makePortraits() {
     sc.add(f.root);
     const h = d.build.h, hy = 2.55 * h;
     cam.position.set(1.4, hy + .35, 3.4); cam.lookAt(.15, hy - .05, 0);
-    renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(sc, cam);
-    renderer.readRenderTargetPixels(rt, 0, 0, S, S, px);
-    for (let y = 0; y < S; y++) img.data.set(px.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4); // flip Y
-    cx.putImageData(img, 0, 0);
-    portraits[d.id] = cv.toDataURL();
+    for (const mood of f.faces ? ['n', 'open', 'hurt'] : ['n']) { // one per expression, for the HUD (55)
+      if (f.faces) f.faceMat.map = f.faces[mood];
+      renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(sc, cam);
+      renderer.readRenderTargetPixels(rt, 0, 0, S, S, px);
+      for (let y = 0; y < S; y++) img.data.set(px.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4); // flip Y
+      cx.putImageData(img, 0, 0);
+      portraits[mood === 'n' ? d.id : `${d.id}:${mood}`] = cv.toDataURL();
+    }
     sc.remove(f.root); disposeObj(f.root);
   }
   renderer.setRenderTarget(null); renderer.setClearColor(0x000000, 1); rt.dispose();

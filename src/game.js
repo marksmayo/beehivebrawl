@@ -2,6 +2,8 @@ import { AI } from './ai.js';
 import { STAGES, arenaArt, buildStage, stage } from './arenas.js';
 import { isTouch } from './touchui.js';
 import { INTROS } from './anim.js';
+import { ReplayBuffer } from './camerafx.js';
+import { impactFrame, koStamp } from './comicfx.js';
 import { fillNewspaper, fillOrderPaper, hideNameCards, renderCover, renderGallery, resetPolls, saveWin, setPortraits, showVS } from './screens.js';
 import { audioInit, muted, say, setMuted, setVoicesOn, sfx, voicesOn } from './audio.js';
 import { banner, bubble, clearFloaters, floater, hideBanner, screenFlash } from './dom.js';
@@ -18,6 +20,7 @@ import { $, hex, pick, rand } from './util.js';
 const game = {
   phase:'title', mode:'cpu', diff:1, p:[null, null], ai:null, aiA:null, aiB:null,
   sel:[0, 1], conf:[false, false], stageIdx:(Math.random() * 8) | 0, round:1, timer:60, phaseT:0, freezeT:0, timeScale:1, shakeT:0, demo:true,
+  replay:new ReplayBuffer(2.2, 30), final:false, slowT:0, camRoll:0,
   wind:0, windT:5, windDir:0, cine:null, introStep:0, victoryShown:false, roundWinner:null, paused:false,
   hitstop(t) { this.freezeT = Math.max(this.freezeT, t); },
   // directional shake (along the hit) and a quick camera punch-in on impact (37, 92)
@@ -25,7 +28,7 @@ const game = {
   shake(t, dir = 0) { if (t >= this.shakeMag * Math.exp(-this.shakeAge * 9)) { this.shakeMag = t; this.shakeAge = 0; this.shakeDir = dir || (Math.random() < .5 ? -1 : 1); } this.shakeT = Math.max(this.shakeT, t); },
   punchIn(z) { this.zoom = Math.max(this.zoom, z); },
   superFlash(f, mv) {
-    this.cine = { f, t:.85 };
+    this.cine = { f, t:.85, T:.85 }; impactFrame('super');
     const sp = $('#superPanel');
     sp.style.setProperty('--sc', hex(f.def.pcol === 0x222222 ? 0xffd23f : f.def.pcol));
     sp.querySelector('img').src = portraits[f.def.id];
@@ -39,7 +42,8 @@ const game = {
     this.phase = 'ko'; this.phaseT = 0; this.timeScale = .3; this.victoryShown = false; this.roundWinner = winner;
     loser.cleanupSpecial(); loser.state = 'ko'; loser.stateT = 0; loser.vy = 7; loser.vx = dir * 6; loser.atk = null; loser.sp = null;
     winner.wins++;
-    banner('K.O.!', pick(KO_SUBS), 2400);
+    this.final = winner.wins >= 2; this.slowT = 0; // the deciding KO gets slow-mo and a replay (93, 94)
+    banner('K.O.!', '', 1600); koStamp(pick(KO_SUBS)); impactFrame('ko'); // (41, 52)
     sfx.ko(); screenFlash(); this.shake(.5);
     say('K.O.!', { pitch:.6, rate:.9 });
     bubble(loser, loser.def.hurt, { dur:2 });
@@ -185,7 +189,7 @@ function startMatch() {
 function startRound() {
   const [a, b] = game.p;
   clearFx(); clearFloaters();
-  a.resetRound(-3); b.resetRound(3); resetPolls();
+  a.resetRound(-3); b.resetRound(3); resetPolls(); game.replay.clear(); game.final = false;
   for (const f of [a, b]) enterStage(f); // per-character round intros (33)
   game.phase = 'intro'; game.phaseT = 0; game.introStep = 0; game.timer = 60; game.timeScale = 1; game.wind = 0; game.windT = rand(4, 8);
   showScreen(null);

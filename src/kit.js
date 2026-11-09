@@ -6,8 +6,26 @@ const gradTex = (() => {
   t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
 })();
 function toon(color, o = {}) {
-  return new THREE.MeshToonMaterial({ color, gradientMap:gradTex, emissive:o.emissive ?? 0, emissiveIntensity:o.ei ?? 1, vertexColors:!!o.vc,
+  const m = new THREE.MeshToonMaterial({ color, gradientMap:gradTex, emissive:o.emissive ?? 0, emissiveIntensity:o.ei ?? 1, vertexColors:!!o.vc,
     transparent:o.opacity != null, opacity:o.opacity ?? 1, side:o.side ?? THREE.FrontSide, depthWrite:o.opacity == null || o.opacity > .9 });
+  return o.halftone === false ? m : halftone(m);
+}
+// print-style halftone dots, in screen space, only where the lighting puts the surface in shadow (47)
+const HALFTONE = /* glsl */`
+  { // halftone
+    float htShade = dot(outgoingLight, vec3(.299, .587, .114)) / max(.002, dot(diffuseColor.rgb, vec3(.299, .587, .114)));
+    vec2 htP = mat2(.707, -.707, .707, .707) * gl_FragCoord.xy / uDot;
+    float htD = length(fract(htP) - .5), htR = clamp((.66 - htShade) * 1.1, 0., .48);
+    outgoingLight *= 1. - .38 * (1. - smoothstep(htR - .07, htR, htD)) * step(htShade, .66);
+  }
+  #include <opaque_fragment>`;
+function halftone(m) {
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uDot = { value:4.5 * (globalThis.devicePixelRatio ?? 1) };
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform float uDot;\nvoid main() {').replace('#include <opaque_fragment>', HALFTONE);
+  };
+  m.customProgramCacheKey = () => 'halftone';
+  return m;
 }
 const OL = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide });
 const _s = new THREE.Vector3(), _c = new THREE.Vector3();
@@ -25,7 +43,10 @@ const inkMats = {};
 function inkMaterial(t) {
   return inkMats[t] ??= (() => {
     const k = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide });
-    k.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed += normalize(normal) * ${t.toFixed(4)};`); };
+    // brush: the stroke swells and thins smoothly along the surface rather than a constant width (48)
+    k.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+float brush = .7 + .5 * (.5 + .5 * sin(position.x * 9. + position.y * 7. + position.z * 11.));
+transformed += normalize(normal) * ${t.toFixed(4)} * brush;`); };
     k.customProgramCacheKey = () => 'ink' + t; return k;
   })();
 }
@@ -140,4 +161,4 @@ function smokeStack(p, x, y, z, { scale = 1, color = 0xeeeeee, rate = .35, rise 
   };
 }
 
-export { gradTex, toon, OL, _s, _c, outline, inkMats, inkMaterial, ink, disposeObj, place, BOX, CYL, SPH, CONE, PRISM, ground, water, mountain, tree, textTex, sign, skyTex, flagTex, wavingFlag, smokeStack };
+export { gradTex, toon, halftone, OL, _s, _c, outline, inkMats, inkMaterial, ink, disposeObj, place, BOX, CYL, SPH, CONE, PRISM, ground, water, mountain, tree, textTex, sign, skyTex, flagTex, wavingFlag, smokeStack };

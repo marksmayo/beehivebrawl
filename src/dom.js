@@ -3,6 +3,7 @@ import { _c } from './kit.js';
 import { camera } from './renderer.js';
 import { SFX_WORDS } from './roster.js';
 import { $, clamp, pick, rand } from './util.js';
+import { bubbleTail } from './fxlogic.js';
 
 // DOM effects: floaters, comic SFX bursts, speech bubbles, banners
 
@@ -26,6 +27,7 @@ function bubble(f, text, { dur = 1.8, shout = false } = {}) {
   let b = bubbles.get(f);
   if (!b) { b = { el:document.createElement('div') }; floatLayer.appendChild(b.el); bubbles.set(f, b); }
   b.el.className = 'bubble' + (shout ? ' shout' : ''); b.el.textContent = text; b.life = dur; b.el.style.display = 'block';
+  void b.el.offsetWidth; b.el.classList.add('pop');
 }
 function clearBubbles() { bubbles.forEach(b => b.el.remove()); bubbles.clear(); }
 function updateFloaters(dt) {
@@ -43,8 +45,8 @@ function updateFloaters(dt) {
     b.life -= dt;
     if (b.life <= 0 || !f.root.parent) { b.el.style.display = 'none'; return; }
     _c.set(f.x, f.y + 3.35 * f.def.build.h, 0);
-    const [x, y] = toScreen(_c);
-    b.el.style.left = x + 'px'; b.el.style.top = y + 'px';
+    const [x, y] = toScreen(_c), w = b.el.offsetWidth || 200, bx = clamp(x, w / 2 + 8, innerWidth - w / 2 - 8);
+    b.el.style.left = bx + 'px'; b.el.style.top = y + 'px'; b.el.style.setProperty('--tail', `${bubbleTail(x, bx, w).toFixed(0)}px`);
     b.el.style.opacity = clamp(b.life / .25, 0, 1);
   });
 }
